@@ -122,8 +122,16 @@ export async function sendManualReminder(
       }
     }
 
-    // Envoyer l'email
-    const bcc = await getAllEmailCopyBcc(societyId);
+    // Envoyer l'email — BCC = copies internes + mandataires "reçoit relances"
+    const { getMandataireBccEmails } = await import("@/lib/tenant-email-routing");
+    const [internalBcc, mandataireBcc] = await Promise.all([
+      getAllEmailCopyBcc(societyId),
+      getMandataireBccEmails(tenant.id, "reminder", [tenantEmail]),
+    ]);
+    const bcc = [
+      ...(Array.isArray(internalBcc) ? internalBcc : internalBcc ? [internalBcc] : []),
+      ...mandataireBcc,
+    ];
     const emailResult = await sendReminderEmail({
       to: tenantEmail,
       tenantName,

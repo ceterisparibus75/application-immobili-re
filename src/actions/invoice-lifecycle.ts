@@ -343,7 +343,18 @@ async function generateQuittancePdfAndSend(
     "quittance"
   );
 
-  const bcc = await getAllEmailCopyBcc(societyId);
+  const { getMandataireBccEmails } = await import("@/lib/tenant-email-routing");
+  const [internalBcc, mandataireBcc] = await Promise.all([
+    getAllEmailCopyBcc(societyId),
+    getMandataireBccEmails(quittance.tenantId, "quittance", [to]),
+  ]);
+  const bcc = [
+    ...(Array.isArray(internalBcc) ? internalBcc : internalBcc ? [internalBcc] : []),
+    ...mandataireBcc,
+  ];
+  // proofContext.societyId permet à resolveFrom() d'utiliser le sender société
+  // vérifié (ou unified sender de l'admin) au lieu du fallback noreply@mygestia.
+  // Aligne le comportement des quittances sur celui des factures.
   await sendReceiptEmail({
     to,
     tenantName,
@@ -356,6 +367,14 @@ async function generateQuittancePdfAndSend(
     societyName: soc?.name ?? "",
     pdfAttachment: { filename: pdfFileName, content: pdfBuffer },
     bcc,
+    proofContext: {
+      societyId,
+      entityType: "Invoice",
+      entityId: quittance.id,
+      tenantId: quittance.tenantId,
+      leaseId: quittance.leaseId ?? undefined,
+      invoiceId: quittance.id,
+    },
   });
 
   if (supabase) {
@@ -432,6 +451,9 @@ export async function sendInvoiceToTenant(
       ? new Date(invoice.periodStart).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
       : new Date(invoice.issueDate).toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
+    const { getMandataireBccEmails: getMBcc } = await import("@/lib/tenant-email-routing");
+    const mandataireBcc = await getMBcc(invoice.tenantId, "invoice", [to]);
+
     const result = await sendInvoiceEmail({
       to,
       tenantName,
@@ -441,6 +463,15 @@ export async function sendInvoiceToTenant(
       period,
       societyName: invoice.society?.name ?? "",
       items: invoice.lines.map((l) => ({ label: l.label, amount: l.totalTTC })),
+      bcc: mandataireBcc.length > 0 ? mandataireBcc : undefined,
+      proofContext: {
+        societyId,
+        entityType: "Invoice",
+        entityId: invoice.id,
+        tenantId: invoice.tenantId,
+        leaseId: invoice.leaseId ?? undefined,
+        invoiceId: invoice.id,
+      },
     });
 
     if (!result.success) return { success: false, error: result.error ?? "Erreur d'envoi" };

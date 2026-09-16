@@ -20,6 +20,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useSociety } from "@/providers/society-provider";
 import { LEGAL_FORMS } from "@/lib/constants";
+import { MandatairesSection } from "./mandataires-section";
 
 const RISK_OPTIONS = [
   { value: "VERT", label: "Vert — Aucun risque" },
@@ -345,6 +346,10 @@ export default function ModifierLocatairePage() {
           </Button>
         </div>
       </form>
+
+      {activeSociety && (
+        <MandatairesSection societyId={activeSociety.id} tenantId={params.id} />
+      )}
     </div>
   );
 }

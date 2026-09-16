@@ -793,6 +793,57 @@ export async function sendPortalLoginCodeEmail(params: PortalLoginCodeEmailParam
 }
 
 // ============================================================
+// MAGIC LINK — connexion portail sans code OTP
+// ============================================================
+
+interface PortalMagicLinkEmailParams {
+  to: string;
+  recipientName: string | null;
+  tenantName: string;
+  societyName: string;
+  url: string;
+  expiresAt: Date;
+  role?: string | null; // "Comptable", "Gérant"… si envoyé à un mandataire
+}
+
+export async function sendPortalMagicLinkEmail(
+  params: PortalMagicLinkEmailParams
+): Promise<EmailResult> {
+  const greeting = params.recipientName
+    ? `Bonjour <strong>${params.recipientName}</strong>,`
+    : "Bonjour,";
+
+  const roleLine = params.role
+    ? para(`En tant que <strong>${params.role}</strong> de <strong>${params.tenantName}</strong>, vous pouvez accéder à l'espace locataire pour consulter les documents et déposer vos justificatifs.`)
+    : para(`Cliquez sur le bouton ci-dessous pour vous connecter directement à votre espace locataire — sans code à saisir.`);
+
+  const expiryLabel = params.expiresAt.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const content = `
+    ${heading("Accédez à votre espace en un clic")}
+    ${para(greeting)}
+    ${roleLine}
+    ${ctaButton("Accéder à mon espace", params.url)}
+    ${infoBox(
+      `Ce lien est personnel et à usage unique. Il expire le <strong>${expiryLabel}</strong>. Si vous ne l'utilisez pas d'ici là, demandez-en un nouveau depuis la page de connexion.`,
+      "info"
+    )}
+    ${para(`Vous pouvez aussi vous connecter classiquement avec un code à 6 chiffres sur <a href="${SITE_URL}/portal/login" style="color:${BRAND.blue};">${SITE_URL}/portal/login</a>.`, { small: true, muted: true })}
+    ${signature(params.societyName)}
+  `;
+
+  return sendMail(
+    params.to,
+    `Accès à votre espace ${params.societyName}`,
+    baseTemplate("Lien de connexion", content, { societyName: params.societyName })
+  );
+}
+
+// ============================================================
 // RELANCE ATTESTATION D'ASSURANCE
 // ============================================================
 

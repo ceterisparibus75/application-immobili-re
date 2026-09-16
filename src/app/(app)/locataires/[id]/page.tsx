@@ -31,6 +31,7 @@ import { TenantContactsSection } from "./contacts-section";
 import { TenantAccount } from "./tenant-account";
 import { DeleteTenantButton } from "./delete-tenant-button";
 import { InviteTenantButton } from "./invite-tenant-button";
+import { SendMagicLinkButton } from "./send-magic-link-button";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
@@ -201,8 +202,13 @@ export default async function LocataireDetailPage({
           </div>
         </div>
         {/* Actions */}
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
           <InviteTenantButton tenantId={id} />
+          <SendMagicLinkButton
+            tenantId={id}
+            tenantEmail={tenant.email ?? ""}
+            tenantName={name}
+          />
           <Link href={`/baux/nouveau?tenantId=${id}`}>
             <Button variant="outline" className="gap-1.5">
               <FileText className="h-4 w-4" />

@@ -1553,6 +1553,8 @@ model Tenant {
   documentChecklist    TenantDocument[]
   secondaryContacts    TenantContact[]
   portalAccess         TenantPortalAccess?
+  mandataires          TenantMandataire[]
+  magicLinks           PortalMagicLink[]
   documents            Document[]
   invoices             Invoice[]
   balanceAdjustments   TenantBalanceAdjustment[]
@@ -1668,6 +1670,63 @@ model TenantPortalAccess {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([token])
+}
+
+/// Mandataires du locataire — comptables, gérants, assistants qui peuvent
+/// se connecter au portail au nom du locataire (déposer des documents,
+/// consulter des factures, etc.). Un locataire peut avoir 0..N mandataires.
+/// L'email est unique par tenant (un même comptable peut être mandataire
+/// de plusieurs locataires différents dans MyGestia).
+model TenantMandataire {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  tenantId  String
+
+  email           String  // Email de connexion portail + destinataire routing
+  name            String? // Nom d'affichage (ex: "Muriel Dubant — Comptable MCFOI")
+  role            String? // Rôle libellé libre (ex: "Comptable", "Gérant", "Assistante")
+  canAccessPortal Boolean @default(true)
+  lastLoginAt     DateTime?
+
+  // Routing d'envoi : par défaut le mandataire reçoit tout, mais on peut
+  // désactiver finement pour un mandataire spécifique. Ex : la comptable
+  // ne veut recevoir que les quittances (justificatifs), pas les appels de
+  // loyer qui partent sur une boîte fournisseurs dédiée.
+  receivesInvoices   Boolean @default(true) // Factures + appels de loyer
+  receivesQuittances Boolean @default(true) // Quittances (justificatifs)
+  receivesReminders  Boolean @default(true) // Relances
+  receivesDocuments  Boolean @default(true) // Autres courriers / décomptes
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  magicLinks PortalMagicLink[]
+
+  @@unique([tenantId, email])
+  @@index([email])
+  @@index([tenantId])
+}
+
+/// Magic link à usage unique pour connexion au portail sans code OTP.
+/// Injecté dans les emails automatiques (facture, quittance, relance) pour
+/// simplifier l'accès du locataire ou d'un de ses mandataires.
+model PortalMagicLink {
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  tenantId     String
+  mandataireId String? // NULL = accès au nom du tenant principal
+
+  token     String    @unique // Token cryptographique aléatoire (32 bytes hex)
+  expiresAt DateTime
+  usedAt    DateTime? // NULL = pas encore utilisé
+  ipAddress String? // IP du dernier usage (audit)
+  userAgent String? // Trace navigateur
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  mandataire  TenantMandataire? @relation(fields: [mandataireId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([tenantId])
+  @@index([expiresAt])
 }
 
 // ============================================================

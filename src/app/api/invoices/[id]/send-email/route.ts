@@ -9,6 +9,7 @@ import { createAuditLog } from "@/lib/audit";
 import { sendInvoiceEmail, sendReceiptEmail } from "@/lib/email";
 import * as nodePath from "path";
 import { getAllEmailCopyBcc } from "@/lib/email-copy";
+import { getMandataireBccEmails } from "@/lib/tenant-email-routing";
 import { env } from "@/lib/env";
 import { buildStorageFileName } from "@/lib/storage-path";
 import React from "react";
@@ -223,7 +224,20 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     ], "pdf", "facture");
 
     const isQuittance = invoice.invoiceType === "QUITTANCE";
-    const bcc = await getAllEmailCopyBcc(context.societyId);
+    // BCC = copies internes (gestionnaires) + mandataires du locataire
+    // configurés pour recevoir cette catégorie de document.
+    const [internalBcc, mandataireBcc] = await Promise.all([
+      getAllEmailCopyBcc(context.societyId),
+      getMandataireBccEmails(
+        invoice.tenantId,
+        isQuittance ? "quittance" : "invoice",
+        [to]
+      ),
+    ]);
+    const bcc = [
+      ...(Array.isArray(internalBcc) ? internalBcc : internalBcc ? [internalBcc] : []),
+      ...mandataireBcc,
+    ];
     const wasAlreadySent = !!invoice.sentAt;
     const proofContext = {
       societyId: context.societyId,

@@ -7,11 +7,63 @@ import { portalLoginRequestSchema, portalLoginVerifySchema } from "@/validations
 import { sendPortalLoginCodeEmail } from "@/lib/email";
 import { getPortalRatelimit } from "@/lib/rate-limit";
 
+/**
+ * Résout un email portail vers un tenant + éventuel mandataire.
+ *
+ * Cherche dans 3 sources, dans l'ordre :
+ *  1. Tenant.email            (locataire principal)
+ *  2. Tenant.billingEmail     (email de facturation dédié)
+ *  3. TenantMandataire.email  (comptable, gérant… avec canAccessPortal=true)
+ *
+ * Retourne le premier match trouvé. Si l'email est mandataire de plusieurs
+ * locataires, on prend le premier avec un portail actif (rare — un mandataire
+ * gère typiquement un tenant à la fois côté MyGestia).
+ */
+async function resolvePortalIdentity(rawEmail: string) {
+  const email = rawEmail.toLowerCase().trim();
+
+  // 1 + 2. Locataire principal (email ou billingEmail)
+  const tenants = await prisma.tenant.findMany({
+    where: {
+      isActive: true,
+      deletedAt: null,
+      OR: [
+        { email: { equals: email, mode: "insensitive" } },
+        { billingEmail: { equals: email, mode: "insensitive" } },
+      ],
+    },
+    include: { portalAccess: true },
+  });
+  const tenant = tenants.find((t) => t.portalAccess?.isActive) ?? tenants[0];
+  if (tenant?.portalAccess?.isActive) {
+    return { kind: "tenant" as const, tenant, mandataire: null };
+  }
+
+  // 3. Mandataire (comptable, gérant…)
+  const mandataires = await prisma.tenantMandataire.findMany({
+    where: {
+      email: { equals: email, mode: "insensitive" },
+      canAccessPortal: true,
+      tenant: { isActive: true, deletedAt: null },
+    },
+    include: {
+      tenant: { include: { portalAccess: true } },
+    },
+  });
+  const mandataire =
+    mandataires.find((m) => m.tenant.portalAccess?.isActive) ?? mandataires[0];
+  if (mandataire?.tenant.portalAccess?.isActive) {
+    return { kind: "mandataire" as const, tenant: mandataire.tenant, mandataire };
+  }
+
+  return null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Rate limiting sur le portail (par IP)
+    // Rate limiting (par IP)
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
       req.headers.get("x-real-ip") ??
@@ -25,7 +77,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Si un code est fourni → étape 2 (vérification)
+    // ── Étape 2 : vérification du code ───────────────────────────────
     if (body.code) {
       const parsed = portalLoginVerifySchema.safeParse(body);
       if (!parsed.success) {
@@ -36,30 +88,20 @@ export async function POST(req: NextRequest) {
       }
 
       const { email, code } = parsed.data;
+      const identity = await resolvePortalIdentity(email);
 
-      // Recherche multi-société : trouver tous les locataires avec cet email
-      const tenants = await prisma.tenant.findMany({
-        where: { email: { equals: email, mode: "insensitive" }, isActive: true },
-        include: { portalAccess: true },
-      });
-
-      // Trouver celui avec un code d'activation en attente, sinon un portail actif
-      const tenant = tenants.find((t) => t.portalAccess?.activationCode) ?? tenants.find((t) => t.portalAccess?.isActive);
-
-      if (!tenant?.portalAccess?.isActive) {
+      if (!identity?.tenant.portalAccess?.isActive) {
         return NextResponse.json({ error: "Compte portail introuvable ou inactif" }, { status: 404 });
       }
 
-      const portal = tenant.portalAccess;
+      const portal = identity.tenant.portalAccess;
 
       if (portal.activationCodeExpiresAt && new Date() > portal.activationCodeExpiresAt) {
-        // Still run bcrypt to avoid timing leak on expiry check
         const dummyHash = "$2b$10$dummyhashvaluefortimingattttttttttttttttttttttt";
         await compare(code, dummyHash);
         return NextResponse.json({ error: "Code expiré. Redemandez un code." }, { status: 400 });
       }
 
-      // Constant-time comparison: always run bcrypt even if no code exists
       const dummyHash = "$2b$10$dummyhashvaluefortimingattttttttttttttttttttttt";
       const hashToCompare = portal.activationCode ?? dummyHash;
       const isValid = await compare(code, hashToCompare);
@@ -67,7 +109,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Code invalide" }, { status: 400 });
       }
 
-      // Code valide → créer session
+      // Code valide → nettoyer + tracer login
       await prisma.tenantPortalAccess.update({
         where: { id: portal.id },
         data: {
@@ -76,12 +118,21 @@ export async function POST(req: NextRequest) {
           lastLoginAt: new Date(),
         },
       });
+      if (identity.kind === "mandataire" && identity.mandataire) {
+        await prisma.tenantMandataire.update({
+          where: { id: identity.mandataire.id },
+          data: { lastLoginAt: new Date() },
+        });
+      }
 
-      await createPortalSession(tenant.id, email);
+      // La session porte l'email qui s'est réellement connecté (mandataire
+      // ou tenant) mais reste scopée sur tenantId — le portail affiche
+      // toujours les données du locataire, avec traçabilité de qui a agi.
+      await createPortalSession(identity.tenant.id, email);
       return NextResponse.json({ success: true });
     }
 
-    // Sinon → étape 1 (envoi du code)
+    // ── Étape 1 : envoi du code ──────────────────────────────────────
     const parsed = portalLoginRequestSchema.safeParse(body);
     if (!parsed.success) {
       return NextResponse.json(
@@ -91,17 +142,9 @@ export async function POST(req: NextRequest) {
     }
 
     const { email } = parsed.data;
+    const identity = await resolvePortalIdentity(email);
 
-    // Recherche multi-société : trouver tous les locataires avec cet email
-    const tenants = await prisma.tenant.findMany({
-      where: { email: { equals: email, mode: "insensitive" }, isActive: true },
-      include: { portalAccess: true },
-    });
-
-    // Trouver un locataire avec un portail actif
-    const tenant = tenants.find((t) => t.portalAccess?.isActive);
-
-    if (!tenant?.portalAccess?.isActive) {
+    if (!identity?.tenant.portalAccess?.isActive) {
       // Ne pas révéler si le compte existe ou non
       return NextResponse.json({ codeSent: true });
     }
@@ -111,20 +154,24 @@ export async function POST(req: NextRequest) {
     const hashedCode = await hash(loginCode, 10);
 
     await prisma.tenantPortalAccess.update({
-      where: { id: tenant.portalAccess.id },
+      where: { id: identity.tenant.portalAccess.id },
       data: {
         activationCode: hashedCode,
         activationCodeExpiresAt: new Date(Date.now() + 15 * 60 * 1000),
       },
     });
 
+    const tenant = identity.tenant;
     const tenantName =
       tenant.entityType === "PERSONNE_MORALE"
         ? (tenant.companyName ?? "")
         : `${tenant.firstName ?? ""} ${tenant.lastName ?? ""}`.trim();
 
+    // ⚠️ Envoyer le code à l'email qui a fait la demande (pas forcément
+    // le tenant principal) : sinon un mandataire ne recevrait jamais le
+    // code alors qu'il en a besoin pour se connecter.
     await sendPortalLoginCodeEmail({
-      to: tenant.email,
+      to: email,
       tenantName,
       code: loginCode,
     });
