@@ -3,9 +3,10 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, ArrowRight, FileClock, Mail, Plus, Receipt, Zap } from "lucide-react";
+import { AlertOctagon, AlertTriangle, ArrowRight, FileClock, Mail, Plus, Receipt, Zap } from "lucide-react";
 import { InvoicesList } from "./invoices-list";
 import { DraftsBanner } from "./drafts-banner";
+import { FailedDeliverySection, type FailedInvoiceDeliveryItem } from "./failed-delivery-section";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
@@ -43,6 +44,7 @@ interface FacturationTabsProps {
   overdueInvoices: OverdueInvoice[];
   societyId: string;
   overdueCount: number;
+  failedDeliveries: FailedInvoiceDeliveryItem[];
 }
 
 type FacturationTab = "a-traiter" | "brouillons" | "factures" | "relances" | "quittances";
@@ -146,7 +148,9 @@ export function FacturationTabs({
   overdueInvoices,
   societyId,
   overdueCount,
+  failedDeliveries,
 }: FacturationTabsProps) {
+  const failedCount = failedDeliveries.length;
   const issuedInvoices = invoices.filter((i) => i.status !== "BROUILLON");
   const quittances = issuedInvoices.filter((i) => i.invoiceType === "QUITTANCE");
   const billingInvoices = issuedInvoices.filter((i) => i.invoiceType !== "QUITTANCE");
@@ -157,7 +161,11 @@ export function FacturationTabs({
     (sum, invoice) => sum + invoice.totalTTC - invoice.payments.reduce((paid, payment) => paid + payment.amount, 0),
     0
   );
-  const hasWork = brouillons.length > 0 || invoicesToSend.length > 0 || overdueCount > 0;
+  const hasWork =
+    brouillons.length > 0 ||
+    invoicesToSend.length > 0 ||
+    overdueCount > 0 ||
+    failedCount > 0;
 
   return (
     <div>
@@ -166,7 +174,7 @@ export function FacturationTabs({
           À traiter
           {hasWork && (
             <Badge variant="secondary" className="h-5 min-w-5 px-1.5 text-[10px]">
-              {brouillons.length + invoicesToSend.length + overdueCount}
+              {brouillons.length + invoicesToSend.length + overdueCount + failedCount}
             </Badge>
           )}
         </FacturationTabLink>
@@ -197,7 +205,7 @@ export function FacturationTabs({
       {/* Onglet À traiter */}
       {initialTab === "a-traiter" && (
         <div className="mt-6 space-y-6">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
             <QueueCard
               title="Brouillons"
               count={brouillons.length}
@@ -213,6 +221,15 @@ export function FacturationTabs({
               href="/facturation#a-envoyer"
               icon={<Mail className="size-4" />}
               disabled={invoicesToSend.length === 0}
+            />
+            <QueueCard
+              title="Emails non délivrés"
+              count={failedCount}
+              detail={failedCount > 0 ? "Rejetés par le serveur destinataire" : "Aucun rejet récent"}
+              href="/facturation#emails-non-delivres"
+              icon={<AlertOctagon className="size-4" />}
+              tone={failedCount > 0 ? "danger" : "default"}
+              disabled={failedCount === 0}
             />
             <QueueCard
               title="Retards"
@@ -245,6 +262,11 @@ export function FacturationTabs({
             </Card>
           ) : (
             <div className="space-y-6">
+              {failedCount > 0 && (
+                <section id="emails-non-delivres" className="scroll-mt-24">
+                  <FailedDeliverySection items={failedDeliveries} />
+                </section>
+              )}
               {brouillons.length > 0 && <DraftsBanner drafts={brouillons} societyId={societyId} />}
               {invoicesToSend.length > 0 && (
                 <section id="a-envoyer" className="scroll-mt-24">

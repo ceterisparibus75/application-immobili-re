@@ -19,6 +19,7 @@ import { auth } from "@/lib/auth";
 import { requireSocietyAccess } from "@/lib/permissions";
 import { FacturationTabs } from "./_components/facturation-tabs";
 import { ExportFactures } from "@/components/exports/export-factures";
+import { getInvoicesWithFailedDelivery } from "@/lib/failed-deliveries";
 import {
   formatCurrencyAmountFr,
   isIssuedInvoiceForBillingKpi,
@@ -96,9 +97,10 @@ export default async function FacturationPage({ searchParams }: PageProps) {
 
   await requireSocietyAccess(session.user.id, societyId);
 
-  const [invoices, overdueInvoices] = await Promise.all([
+  const [invoices, overdueInvoices, failedDeliveries] = await Promise.all([
     getInvoices(societyId),
     getOverdueInvoices(societyId),
+    getInvoicesWithFailedDelivery(societyId),
   ]);
 
   const issuedInvoices = invoices.filter(isIssuedInvoiceForBillingKpi);
@@ -251,6 +253,10 @@ export default async function FacturationPage({ searchParams }: PageProps) {
           overdueInvoices={overdueInvoices}
           societyId={societyId}
           overdueCount={overdueInvoices.length}
+          failedDeliveries={failedDeliveries.map((d) => ({
+            ...d,
+            failedAt: d.failedAt.toISOString(),
+          }))}
         />
       </Suspense>
     </div>
