@@ -216,10 +216,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     // Nom déterministe pour la compta :
     // - numéro de pièce en premier (retrouver l'écriture depuis le classeur)
     // - période basée sur issueDate (stable, jamais nulle, correspond au
-    //   journal de vente) au format YYYY-MM (tri alphabétique = chronologique)
+    //   journal de vente) au format MM-YYYY (nomenclature historique
+    //   conservée pour continuité avec les archives).
     const buildingName = lot?.building?.name ?? lot?.building?.addressLine1 ?? "";
     const issueDate = new Date(invoice.issueDate);
-    const period = `${issueDate.getFullYear()}-${String(issueDate.getMonth() + 1).padStart(2, "0")}`;
+    const period = `${String(issueDate.getMonth() + 1).padStart(2, "0")}-${issueDate.getFullYear()}`;
     const pdfFileName = buildStorageFileName(
       [invoice.invoiceNumber ?? "previsualisation", buildingName, tenantName, period],
       "pdf",
