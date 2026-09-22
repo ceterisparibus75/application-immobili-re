@@ -215,12 +215,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     // 10. Upload dans Supabase Storage (si configuré)
     // Nom déterministe pour la compta :
     // - numéro de pièce en premier (retrouver l'écriture depuis le classeur)
-    // - période basée sur issueDate (stable, jamais nulle, correspond au
-    //   journal de vente) au format MM-YYYY (nomenclature historique
-    //   conservée pour continuité avec les archives).
+    // - période au format MM-YYYY basée sur periodStart (mois FACTURÉ,
+    //   ex. facture émise le 25/09 pour le loyer d'octobre -> 10-2026).
+    //   Fallback issueDate pour les documents sans période (avoirs, hors
+    //   loyer, factures libres).
     const buildingName = lot?.building?.name ?? lot?.building?.addressLine1 ?? "";
-    const issueDate = new Date(invoice.issueDate);
-    const period = `${String(issueDate.getMonth() + 1).padStart(2, "0")}-${issueDate.getFullYear()}`;
+    const periodDate = invoice.periodStart
+      ? new Date(invoice.periodStart)
+      : new Date(invoice.issueDate);
+    const period = `${String(periodDate.getMonth() + 1).padStart(2, "0")}-${periodDate.getFullYear()}`;
     const pdfFileName = buildStorageFileName(
       [invoice.invoiceNumber ?? "previsualisation", buildingName, tenantName, period],
       "pdf",
