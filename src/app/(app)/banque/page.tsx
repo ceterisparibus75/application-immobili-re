@@ -25,6 +25,8 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import SyncAllButton from "./_components/sync-all-button";
+import { SyncHealthBanner } from "./_components/sync-health-banner";
+import { getBankSyncHealthAlerts } from "@/lib/bank-sync-health";
 
 export const metadata = { title: "Banque" };
 
@@ -58,7 +60,10 @@ export default async function BanquePage() {
 
   if (!societyId) redirect("/societes");
 
-  const dashboard = await getBankOperationsDashboard(societyId);
+  const [dashboard, syncHealthAlerts] = await Promise.all([
+    getBankOperationsDashboard(societyId),
+    getBankSyncHealthAlerts(societyId),
+  ]);
   if (!dashboard) redirect("/societes");
 
   const hasAccounts = dashboard.accountRows.length > 0;
@@ -116,6 +121,8 @@ export default async function BanquePage() {
           </Link>
         </div>
       </div>
+
+      {syncHealthAlerts.length > 0 && <SyncHealthBanner alerts={syncHealthAlerts} />}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <div className="rounded-xl bg-card p-5 shadow-brand">

@@ -214,7 +214,7 @@ export async function getBankAccountById(
           },
         },
         connection: {
-          select: { institutionName: true, status: true },
+          select: { id: true, institutionName: true, status: true, provider: true, expiresAt: true },
         },
         _count: { select: { transactions: true } },
       },

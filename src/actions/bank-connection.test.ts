@@ -181,7 +181,11 @@ describe("bank connection actions", () => {
     );
     expect(prismaMock.bankAccount.update).toHaveBeenCalledWith({
       where: { id: "bank-account-1" },
-      data: { lastSyncAt: expect.any(Date) },
+      data: {
+        lastSyncAt: expect.any(Date),
+        lastSyncAttemptAt: expect.any(Date),
+        lastSyncError: null,
+      },
     });
   });
 });

@@ -99,6 +99,75 @@ export async function initiateOpenBanking(
   }
 }
 
+// ─── Renouveler le consentement PSD2 d'une connexion existante ──────────────
+// Le mandat Powens expire tous les 90 jours (PSD2). Cette action réutilise
+// l'utilisateur Powens déjà enregistré et régénère une webview URL pour la
+// même connexion — le callback flipe le statut à "active" + repousse expiresAt.
+export async function renewOpenBankingConsent(
+  societyId: string,
+  connectionId: string
+): Promise<ActionResult<{ authLink: string; connectionId: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const connection = await prisma.bankConnection.findFirst({
+      where: { id: connectionId, societyId },
+    });
+    if (!connection) return { success: false, error: "Connexion introuvable" };
+    if (!connection.powensAccessToken || !connection.powensUserId) {
+      // Pas de token exploitable : renvoyer vers la connexion initiale
+      return {
+        success: false,
+        error: "Aucun token Powens à réutiliser — reconnectez le compte depuis zéro.",
+      };
+    }
+
+    const appUrl = env.AUTH_URL ?? "http://localhost:3000";
+    const redirectUrl = appUrl + "/api/banque/callback";
+
+    let userToken: string;
+    try {
+      userToken = decrypt(connection.powensAccessToken);
+    } catch {
+      return { success: false, error: "Token Powens corrompu — reconnectez le compte." };
+    }
+
+    // Récupérer un code fraîchement signé pour la webview manage
+    const code = await getPowensWebviewCode(userToken);
+    const webviewUrl = buildPowensWebviewUrl({
+      code,
+      state: connection.id,
+      redirectUri: redirectUrl,
+      connectorId: connection.connectorId
+        ? parseInt(connection.connectorId, 10) || undefined
+        : undefined,
+    });
+
+    // Repasser en "pending" pendant que l'utilisateur autorise
+    await prisma.bankConnection.update({
+      where: { id: connection.id },
+      data: { status: "pending" },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "BankConnection",
+      entityId: connection.id,
+      details: { event: "renew_consent_initiated", institutionName: connection.institutionName },
+    });
+
+    return { success: true, data: { authLink: webviewUrl, connectionId: connection.id } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[renewOpenBankingConsent]", msg);
+    return { success: false, error: "Erreur lors du renouvellement du consentement" };
+  }
+}
+
 
 // syncOpenBankingAccounts
 export async function syncOpenBankingAccounts(
@@ -403,6 +472,7 @@ export async function syncAccountTransactionsInternal(
   userId: number,
   userToken: string
 ): Promise<number> {
+  const attemptAt = new Date();
   const row = await prisma.bankAccount.findUnique({ where: { id: bankAccountId }, select: { lastSyncAt: true } });
   const isFirstSync = !row?.lastSyncAt;
 
@@ -417,7 +487,19 @@ export async function syncAccountTransactionsInternal(
     dateFrom = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   }
 
-  const transactions = await getPowensTransactions(userId, powensAccountId, userToken, dateFrom);
+  let transactions;
+  try {
+    transactions = await getPowensTransactions(userId, powensAccountId, userToken, dateFrom);
+  } catch (error) {
+    // Trace la tentative + l'erreur pour que l'UI puisse la remonter
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await prisma.bankAccount.update({
+      where: { id: bankAccountId },
+      data: { lastSyncAttemptAt: attemptAt, lastSyncError: errorMessage.slice(0, 500) },
+    });
+    throw error;
+  }
+
   let imported = 0;
   let balanceDelta = 0;
   for (const tx of transactions) {
@@ -438,6 +520,9 @@ export async function syncAccountTransactionsInternal(
     balanceDelta += amount;
     imported++;
   }
+
+  // MAJ du compte : lastSyncAttemptAt et lastSyncError sont TOUJOURS mis à jour
+  // (même à 0 tx), lastSyncAt / balance uniquement si des tx ont été importées.
   if (isFirstSync && imported > 0) {
     // Première sync : le solde Powens (currentBalance) inclut déjà ces transactions.
     // On ajuste initialBalance pour que initialBalance + somme_transactions = currentBalance.
@@ -445,17 +530,27 @@ export async function syncAccountTransactionsInternal(
     const correctInitial = (account?.currentBalance ?? 0) - balanceDelta;
     await prisma.bankAccount.update({ where: { id: bankAccountId }, data: {
       initialBalance: correctInitial,
-      lastSyncAt: new Date(),
+      lastSyncAt: attemptAt,
+      lastSyncAttemptAt: attemptAt,
+      lastSyncError: null,
     } });
   } else if (imported > 0) {
-    // Syncs suivantes avec nouvelles transactions : maj solde + date
     await prisma.bankAccount.update({ where: { id: bankAccountId }, data: {
       currentBalance: { increment: balanceDelta },
-      lastSyncAt: new Date(),
+      lastSyncAt: attemptAt,
+      lastSyncAttemptAt: attemptAt,
+      lastSyncError: null,
+    } });
+  } else {
+    // 0 tx : on ne touche pas lastSyncAt (fenêtre de rattrapage) ni au solde,
+    // mais on trace la tentative et on efface l'erreur précédente puisque
+    // l'API a répondu correctement.
+    await prisma.bankAccount.update({ where: { id: bankAccountId }, data: {
+      lastSyncAttemptAt: attemptAt,
+      lastSyncError: null,
     } });
   }
-  // Si 0 transactions importées, on ne met PAS à jour lastSyncAt
-  // pour ne pas perdre la fenêtre de rattrapage
+
   await prisma.auditLog.create({ data: {
     societyId, action: "CREATE", entity: "BankTransaction", entityId: bankAccountId,
     details: { imported, source: "powens_sync", isFirstSync },
@@ -606,6 +701,7 @@ export async function syncQontoTransactionsInternal(
   slug: string,
   secretKey: string
 ): Promise<number> {
+  const attemptAt = new Date();
   const row = await prisma.bankAccount.findUnique({
     where: { id: bankAccountId },
     select: { lastSyncAt: true },
@@ -616,7 +712,17 @@ export async function syncQontoTransactionsInternal(
     : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
   const dateFrom = dateFromDate.toISOString();
 
-  const transactions = await getQontoTransactions(slug, secretKey, qontoAccountSlug, dateFrom);
+  let transactions;
+  try {
+    transactions = await getQontoTransactions(slug, secretKey, qontoAccountSlug, dateFrom);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    await prisma.bankAccount.update({
+      where: { id: bankAccountId },
+      data: { lastSyncAttemptAt: attemptAt, lastSyncError: errorMessage.slice(0, 500) },
+    });
+    throw error;
+  }
 
   let imported = 0;
   let balanceDelta = 0;
@@ -661,15 +767,23 @@ export async function syncQontoTransactionsInternal(
     const correctInitial = (acct?.currentBalance ?? 0) - balanceDelta;
     await prisma.bankAccount.update({
       where: { id: bankAccountId },
-      data: { initialBalance: correctInitial, lastSyncAt: new Date() },
+      data: {
+        initialBalance: correctInitial,
+        lastSyncAt: attemptAt,
+        lastSyncAttemptAt: attemptAt,
+        lastSyncError: null,
+      },
     });
   } else {
-    // Syncs suivantes : incrémenter le solde
+    // Qonto : on met à jour lastSyncAt même à 0 tx (comportement historique,
+    // la fenêtre de 14 j suffit pour rattraper les tx en retard).
     await prisma.bankAccount.update({
       where: { id: bankAccountId },
       data: {
         ...(balanceDelta !== 0 ? { currentBalance: { increment: balanceDelta } } : {}),
-        lastSyncAt: new Date(),
+        lastSyncAt: attemptAt,
+        lastSyncAttemptAt: attemptAt,
+        lastSyncError: null,
       },
     });
   }

@@ -31,6 +31,7 @@ import ImportStatement from "./_components/import-statement";
 import SyncButton from "./_components/sync-button";
 import RecalculateButton from "./_components/recalculate-button";
 import { ExportTransactions } from "@/components/exports/export-transactions";
+import { RenewConsentButton } from "../_components/renew-consent-button";
 
 export default async function BankAccountDetailPage({
   params,
@@ -85,11 +86,37 @@ export default async function BankAccountDetailPage({
             <p className="text-muted-foreground">
               {account.bankName} — {account.ibanMasked}
             </p>
-            {account.lastSyncAt && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Dernière sync : {formatDate(account.lastSyncAt)}
-              </p>
-            )}
+            <div className="mt-0.5 space-y-0.5 text-xs">
+              {account.lastSyncAt && (
+                <p className="text-muted-foreground">
+                  Dernier import : {formatDate(account.lastSyncAt)}
+                  {account.lastSyncAttemptAt &&
+                    account.lastSyncAttemptAt.getTime() !== account.lastSyncAt.getTime() && (
+                      <> · Dernière tentative : {formatDate(account.lastSyncAttemptAt)}</>
+                    )}
+                </p>
+              )}
+              {account.lastSyncError && (
+                <p className="text-destructive font-medium">
+                  Sync en erreur : {account.lastSyncError}
+                </p>
+              )}
+              {account.connection?.expiresAt && (
+                <p
+                  className={
+                    account.connection.expiresAt.getTime() <= Date.now()
+                      ? "text-destructive"
+                      : account.connection.expiresAt.getTime() <=
+                          Date.now() + 15 * 24 * 60 * 60 * 1000
+                        ? "text-[var(--color-status-caution)]"
+                        : "text-muted-foreground"
+                  }
+                >
+                  Consentement PSD2 valide jusqu&apos;au{" "}
+                  {formatDate(account.connection.expiresAt)}
+                </p>
+              )}
+            </div>
           </div>
         </div>
 
@@ -105,6 +132,13 @@ export default async function BankAccountDetailPage({
           <RecalculateButton bankAccountId={account.id} societyId={societyId} />
           {(account.powensAccountId || account.qontoAccountId) && (
             <SyncButton bankAccountId={account.id} societyId={societyId} />
+          )}
+          {account.connection?.provider === "POWENS" && account.connection.id && (
+            <RenewConsentButton
+              connectionId={account.connection.id}
+              label="Renouveler consentement"
+              variant="outline"
+            />
           )}
           <Link href={`/banque/${id}/rapprochement`}>
             <Button variant="outline" className="rounded-lg border-border/60">

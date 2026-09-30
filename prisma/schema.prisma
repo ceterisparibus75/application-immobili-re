@@ -2349,7 +2349,9 @@ model BankAccount {
   // Qonto
   qontoAccountId  String?   @unique // UUID du compte Qonto
   connectionId    String? // Lien vers BankConnection
-  lastSyncAt      DateTime? // Dernière synchronisation
+  lastSyncAt         DateTime? // Dernière sync ayant réellement importé des tx
+  lastSyncAttemptAt  DateTime? // Dernière tentative de sync (même 0 tx / erreur)
+  lastSyncError      String?   @db.Text // Message d'erreur du dernier sync KO (null si OK)
 
   society          Society           @relation(fields: [societyId], references: [id], onDelete: Cascade)
   connection       BankConnection?   @relation(fields: [connectionId], references: [id], onDelete: SetNull)
