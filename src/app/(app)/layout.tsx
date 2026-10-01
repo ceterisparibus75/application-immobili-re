@@ -77,6 +77,20 @@ export default async function AppLayout({
 
   const cookieStore = await cookies();
   const activeSocietyIdFromCookie = cookieStore.get("active-society-id")?.value;
+
+  // Si l'utilisateur a des sociétés mais aucun cookie actif (première connexion,
+  // cookie expiré/effacé), la plupart des pages server lisent
+  // `headers().get("x-society-id")` qui est injecté par le middleware depuis
+  // ce cookie — absent, elles redirigent vers /login → boucle infinie.
+  // On amorce le cookie en passant par /api/society/bootstrap qui 302 sur place.
+  const cookieMatchesMembership =
+    !!activeSocietyIdFromCookie &&
+    societies.some((society) => society.id === activeSocietyIdFromCookie);
+  if (!cookieMatchesMembership && societies.length > 0) {
+    const target = pathname || "/dashboard";
+    redirect(`/api/society/bootstrap?redirect=${encodeURIComponent(target)}`);
+  }
+
   const activeSocietyId =
     societies.find((society) => society.id === activeSocietyIdFromCookie)?.id ?? societies[0]?.id ?? null;
   const navigationFeatures = {
