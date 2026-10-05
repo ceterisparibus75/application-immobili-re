@@ -33,6 +33,7 @@ import RecalculateButton from "./_components/recalculate-button";
 import { ExportTransactions } from "@/components/exports/export-transactions";
 import { RenewConsentButton } from "../_components/renew-consent-button";
 import { PowensDiagnosticButton } from "../_components/powens-diagnostic-button";
+import { BankAccountActionsMenu } from "../_components/bank-account-actions-menu";
 
 export default async function BankAccountDetailPage({
   params,
@@ -155,6 +156,11 @@ export default async function BankAccountDetailPage({
               )}
             </Button>
           </Link>
+          <BankAccountActionsMenu
+            bankAccountId={account.id}
+            accountName={account.accountName}
+            isActive={account.isActive}
+          />
         </div>
       </div>
 

@@ -150,6 +150,147 @@ export async function updateBankAccount(
   }
 }
 
+/**
+ * Archive un compte bancaire (soft-delete via isActive=false).
+ * Les transactions historiques, rapprochements et écritures comptables
+ * restent accessibles ; le compte disparaît des listes actives,
+ * du cron de sync, des sélecteurs. Opération réversible via setBankAccountActive.
+ */
+export async function archiveBankAccount(
+  societyId: string,
+  bankAccountId: string
+): Promise<ActionResult> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const existing = await prisma.bankAccount.findFirst({
+      where: { id: bankAccountId, societyId },
+    });
+    if (!existing) return { success: false, error: "Compte introuvable" };
+    if (!existing.isActive) {
+      return { success: false, error: "Ce compte est déjà archivé" };
+    }
+
+    await prisma.bankAccount.update({
+      where: { id: bankAccountId },
+      data: { isActive: false },
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "BankAccount",
+      entityId: bankAccountId,
+      details: { event: "archived", bankName: existing.bankName, accountName: existing.accountName },
+    });
+
+    revalidatePath("/banque");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[archiveBankAccount]", error);
+    return { success: false, error: "Erreur lors de l'archivage" };
+  }
+}
+
+/**
+ * Supprime définitivement un compte bancaire ET toutes ses transactions
+ * (cascade Prisma). Les SupplierInvoice.bankAccountId passent à NULL
+ * (SetNull dans le schéma) — l'historique de facturation fournisseur reste.
+ *
+ * REFUSE si des écritures comptables (JournalEntry) référencent encore
+ * des transactions de ce compte, pour ne pas trouer le grand livre.
+ * L'utilisateur doit d'abord passer par l'archivage, ou défaire les
+ * écritures manuellement.
+ */
+export async function deleteBankAccount(
+  societyId: string,
+  bankAccountId: string
+): Promise<ActionResult<{ transactionsDeleted: number }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "ADMIN_SOCIETE");
+
+    const existing = await prisma.bankAccount.findFirst({
+      where: { id: bankAccountId, societyId },
+    });
+    if (!existing) return { success: false, error: "Compte introuvable" };
+
+    const journalLinkCount = await prisma.bankTransaction.count({
+      where: { bankAccountId, journalEntryId: { not: null } },
+    });
+    if (journalLinkCount > 0) {
+      return {
+        success: false,
+        error: `Suppression refusée : ${journalLinkCount} transaction${journalLinkCount > 1 ? "s" : ""} de ce compte sont liées à des écritures comptables. Archivez le compte à la place, ou défaites les écritures d'abord.`,
+      };
+    }
+
+    const txCount = await prisma.bankTransaction.count({ where: { bankAccountId } });
+
+    await prisma.bankAccount.delete({ where: { id: bankAccountId } });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "DELETE",
+      entity: "BankAccount",
+      entityId: bankAccountId,
+      details: {
+        bankName: existing.bankName,
+        accountName: existing.accountName,
+        transactionsDeleted: txCount,
+      },
+    });
+
+    revalidatePath("/banque");
+    return { success: true, data: { transactionsDeleted: txCount } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[deleteBankAccount]", error);
+    return { success: false, error: "Erreur lors de la suppression" };
+  }
+}
+
+/**
+ * Réactive un compte précédemment archivé (isActive=true).
+ */
+export async function setBankAccountActive(
+  societyId: string,
+  bankAccountId: string,
+  isActive: boolean
+): Promise<ActionResult> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    const existing = await prisma.bankAccount.findFirst({
+      where: { id: bankAccountId, societyId },
+    });
+    if (!existing) return { success: false, error: "Compte introuvable" };
+
+    await prisma.bankAccount.update({ where: { id: bankAccountId }, data: { isActive } });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "UPDATE",
+      entity: "BankAccount",
+      entityId: bankAccountId,
+      details: { event: isActive ? "reactivated" : "archived" },
+    });
+
+    revalidatePath("/banque");
+    return { success: true };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[setBankAccountActive]", error);
+    return { success: false, error: "Erreur lors de la mise à jour" };
+  }
+}
+
 export async function getBankAccounts(societyId: string) {
   const context = await getOptionalSocietyActionContext(societyId);
   if (!context) return [];
