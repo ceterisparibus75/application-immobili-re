@@ -852,6 +852,16 @@ export function TenantAccount({
                     <Download className="h-4 w-4" />
                     Relevé CSV
                   </Button>
+                  <a
+                    href={`/api/tenants/${tenantId}/statement-pdf`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <Button variant="outline" size="sm" type="button">
+                      <Download className="h-4 w-4" />
+                      Décompte PDF
+                    </Button>
+                  </a>
                   <Dialog open={showLedgerImportDialog} onOpenChange={setShowLedgerImportDialog}>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm">
