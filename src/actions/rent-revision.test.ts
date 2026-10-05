@@ -896,6 +896,8 @@ describe("detectPendingRevisions — branches manquantes", () => {
     prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock))
     prismaMock.rentRevision.create.mockResolvedValue({} as never)
     prismaMock.lease.update.mockResolvedValue({} as never)
+    // rotateRentStepsForRevision : pas de palier existant → no-op
+    prismaMock.leaseRentStep.findMany.mockResolvedValue([] as never)
 
     const r = await applyCatchUpRevisions(SOCIETY_ID, VALID_CUID)
     expect(r.success).toBe(true)

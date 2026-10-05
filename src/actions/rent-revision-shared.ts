@@ -1,7 +1,10 @@
 // Helpers de calcul et constantes pour les révisions de loyer — pas de "use server".
 
 import { prisma } from "@/lib/prisma";
-import type { IndexType, LeaseType } from "@/generated/prisma/client";
+import type { IndexType, LeaseType, Prisma } from "@/generated/prisma/client";
+
+/** Client Prisma, soit global soit un client de transaction. */
+type PrismaLike = typeof prisma | Prisma.TransactionClient;
 
 export const INDEX_ALERT_THRESHOLD_PCT: Record<string, number> = {
   IRL: 10,   // IRL varie rarement au-delà de 5-6% par an hors période exceptionnelle
@@ -260,4 +263,75 @@ export function findClosestIndex(
   // Tolérance : l'écart doit être < 5% de la valeur
   if (bestDiff / targetValue > 0.05) return null;
   return { year: bestMatch.year, quarter: bestMatch.quarter };
+}
+
+/**
+ * Lors de la validation d'une révision de loyer, rote les paliers (RentStep)
+ * du bail pour que l'historique reste cohérent avec le `currentRentHT` mis
+ * à jour :
+ *  - clôture le palier actif (celui qui couvre `effectiveDate`) en lui
+ *    posant un `endDate = effectiveDate - 1 jour`
+ *  - crée un nouveau palier `startDate = effectiveDate, endDate = null,
+ *    rentHT = newRentHT`
+ *
+ * Sans cette rotation, `computeRentForPeriod` (invoice-shared.ts) lit
+ * d'abord les paliers et retourne leur montant obsolète, ignorant la
+ * révision stockée dans `currentRentHT`.
+ *
+ * Idempotent : si aucun palier n'existe sur le bail, ne fait rien
+ * (le fallback `currentRentHT` dans `computeRentForPeriod` suffit).
+ * Si un palier commence déjà exactement à `effectiveDate` avec le même
+ * `rentHT`, ne fait rien non plus (évite les doublons sur double-validation).
+ */
+export async function rotateRentStepsForRevision(
+  tx: PrismaLike,
+  leaseId: string,
+  effectiveDate: Date,
+  newRentHT: number,
+  revisionLabel: string
+): Promise<void> {
+  const existingSteps = await tx.leaseRentStep.findMany({
+    where: { leaseId },
+    orderBy: [{ startDate: "asc" }],
+  });
+
+  if (existingSteps.length === 0) return;
+
+  // Doublon ? Un palier démarre déjà à cette date avec ce montant.
+  const already = existingSteps.find(
+    (s) =>
+      s.startDate.getTime() === effectiveDate.getTime() &&
+      Math.abs(s.rentHT - newRentHT) < 0.005,
+  );
+  if (already) return;
+
+  // Palier actif : celui dont [startDate, endDate ou null] contient la veille
+  // de la révision (donc qui s'étend jusqu'au jour de la révision inclus).
+  const activeStep = existingSteps.find(
+    (s) =>
+      s.startDate.getTime() < effectiveDate.getTime() &&
+      (s.endDate === null || s.endDate.getTime() >= effectiveDate.getTime()),
+  );
+
+  const dayBefore = new Date(effectiveDate.getTime() - 86_400_000);
+
+  if (activeStep) {
+    await tx.leaseRentStep.update({
+      where: { id: activeStep.id },
+      data: { endDate: dayBefore },
+    });
+  }
+
+  const nextPosition = existingSteps.reduce((max, s) => Math.max(max, s.position), 0) + 1;
+
+  await tx.leaseRentStep.create({
+    data: {
+      leaseId,
+      label: revisionLabel,
+      startDate: effectiveDate,
+      endDate: null,
+      rentHT: newRentHT,
+      position: nextPosition,
+    },
+  });
 }

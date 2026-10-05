@@ -21,6 +21,7 @@ import {
   parseBaseIndexQuarter,
   getNextRevisionDate,
   getLatestIndex,
+  rotateRentStepsForRevision,
 } from "@/actions/rent-revision-shared";
 import { previewCatchUpRevisions } from "@/actions/rent-revision-queries";
 
@@ -59,24 +60,36 @@ export async function validateRevision(
       ? `T${matchingIndex.quarter} ${matchingIndex.year}`
       : null;
 
-    await prisma.$transaction([
-      prisma.rentRevision.update({
+    const revisionLabel = `Révision du ${new Date(revision.effectiveDate).toLocaleDateString("fr-FR")}`;
+    await prisma.$transaction(async (tx) => {
+      await tx.rentRevision.update({
         where: { id: revisionId },
         data: {
           isValidated: true,
           validatedAt: new Date(),
           validatedBy: context.userId,
         },
-      }),
-      prisma.lease.update({
+      });
+      await tx.lease.update({
         where: { id: revision.leaseId },
         data: {
           currentRentHT: revision.newRentHT,
           baseIndexValue: revision.newIndexValue,
           ...(newBaseIndexQuarter ? { baseIndexQuarter: newBaseIndexQuarter } : {}),
         },
-      }),
-    ]);
+      });
+      // Rotation des paliers : clôture l'actif, crée le nouveau palier à la
+      // date d'effet pour que la génération d'appels de loyer post-révision
+      // utilise bien le nouveau montant (sinon le palier obsolète prime
+      // sur currentRentHT dans computeRentForPeriod).
+      await rotateRentStepsForRevision(
+        tx,
+        revision.leaseId,
+        new Date(revision.effectiveDate),
+        revision.newRentHT,
+        revisionLabel,
+      );
+    });
 
     await createAuditLog({
       societyId,
@@ -510,6 +523,17 @@ export async function applyCatchUpRevisions(
             validatedBy: context.userId,
           },
         });
+        // Rotation des paliers à chaque révision chaînée pour que
+        // computeRentForPeriod retourne le bon montant pour les périodes
+        // intermédiaires (sinon seul le dernier palier serait pris en compte).
+        const stepLabel = `Révision du ${new Date(step.effectiveDate).toLocaleDateString("fr-FR")}`;
+        await rotateRentStepsForRevision(
+          tx,
+          leaseId,
+          new Date(step.effectiveDate),
+          step.rentAfter,
+          stepLabel,
+        );
       }
 
       // Mettre à jour le bail avec les valeurs finales + le trimestre de référence
