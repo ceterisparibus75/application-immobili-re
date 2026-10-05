@@ -57,4 +57,18 @@ describe("buildPowensWebviewUrl", () => {
     expect(url).toContain("redirect_uri=");
     expect(url).toContain("example.com");
   });
+
+  it("construit une URL /fr/reconnect quand powensConnectionId est fourni", () => {
+    const url = buildPowensWebviewUrl({
+      code: "code",
+      state: "state",
+      redirectUri: "https://example.com/callback",
+      powensConnectionId: "4242",
+      connectorId: 42, // doit être ignoré en mode reconnect
+    });
+
+    expect(url).toContain("https://webview.powens.com/fr/reconnect");
+    expect(url).toContain("connection_id=4242");
+    expect(url).not.toContain("connector_ids");
+  });
 });

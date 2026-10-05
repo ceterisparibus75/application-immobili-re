@@ -132,12 +132,18 @@ export async function renewOpenBankingConsent(
       return { success: false, error: "Token Powens corrompu — reconnectez le compte." };
     }
 
-    // Récupérer un code fraîchement signé pour la webview manage
+    // Récupérer un code fraîchement signé pour la webview reconnect
     const code = await getPowensWebviewCode(userToken);
     const webviewUrl = buildPowensWebviewUrl({
       code,
       state: connection.id,
       redirectUri: redirectUrl,
+      // Si powensConnectionId est connu (connexion déjà établie une fois),
+      // on construit une URL /fr/reconnect. Sans ça, Powens refuse en
+      // "Le lien utilisé est incorrect" car il ne sait pas quelle
+      // connexion renouveler. Pour les connexions pré-field (ancienneté),
+      // on tombe en /connect avec connector_ids.
+      powensConnectionId: connection.powensConnectionId,
       connectorId: connection.connectorId
         ? parseInt(connection.connectorId, 10) || undefined
         : undefined,

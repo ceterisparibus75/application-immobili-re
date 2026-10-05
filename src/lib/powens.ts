@@ -111,6 +111,14 @@ export function buildPowensWebviewUrl(params: {
   state: string;
   redirectUri: string;
   connectorId?: number;
+  /**
+   * Powens connection id (côté Powens, pas BankConnection.id). Quand il est
+   * fourni, on construit une URL /fr/reconnect : elle réutilise une
+   * connexion existante pour renouveler le consentement PSD2 au lieu d'en
+   * créer une nouvelle. Powens refuse (« Le lien utilisé est incorrect »)
+   * un /fr/connect pour une connexion déjà établie.
+   */
+  powensConnectionId?: string | null;
 }): string {
   const q = new URLSearchParams({
     domain: env.POWENS_DOMAIN,
@@ -119,6 +127,12 @@ export function buildPowensWebviewUrl(params: {
     code: params.code,
     state: params.state,
   });
+
+  if (params.powensConnectionId) {
+    q.set("connection_id", params.powensConnectionId);
+    return `https://webview.powens.com/fr/reconnect?${q.toString()}`;
+  }
+
   if (params.connectorId) q.set("connector_ids", String(params.connectorId));
   return `https://webview.powens.com/fr/connect?${q.toString()}`;
 }
