@@ -128,11 +128,13 @@ export function buildPowensWebviewUrl(params: {
     state: params.state,
   });
 
+  // Powens webview : /fr/reconnect pour renouveler un consentement existant,
+  // /fr/connect pour créer une nouvelle connexion. Doc officielle :
+  // https://docs.powens.com/api-reference/overview/webview
   if (params.powensConnectionId) {
     q.set("connection_id", params.powensConnectionId);
     return `https://webview.powens.com/fr/reconnect?${q.toString()}`;
   }
-
   if (params.connectorId) q.set("connector_ids", String(params.connectorId));
   return `https://webview.powens.com/fr/connect?${q.toString()}`;
 }
@@ -159,6 +161,30 @@ export async function getPowensConnectors(): Promise<PowensConnector[]> {
       bic: c.slug ?? String(c.id),
       logo: c.bank_icon?.url ?? undefined,
     }));
+}
+
+// ─── Connexions ───────────────────────────────────────────────────────────────
+
+/**
+ * Vérifie qu'une connexion Powens existe toujours côté serveur.
+ * - 200 : la connexion existe (renvoie l'id)
+ * - 404 : plus de connexion (purgée côté Powens, ou id obsolète)
+ * - autre : laisse remonter l'erreur
+ */
+export async function checkPowensConnectionExists(
+  userId: number,
+  userToken: string,
+  connectionId: string
+): Promise<boolean> {
+  const res = await fetch(`${baseUrl()}/users/${userId}/connections/${connectionId}`, {
+    headers: { Authorization: `Bearer ${userToken}` },
+  });
+  if (res.status === 404) return false;
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`[powens] checkConnection (${res.status}): ${txt}`);
+  }
+  return true;
 }
 
 // ─── Comptes ──────────────────────────────────────────────────────────────────

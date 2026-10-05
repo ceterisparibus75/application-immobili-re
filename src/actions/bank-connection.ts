@@ -15,6 +15,7 @@ import {
   getPowensUserAccounts,
   getPowensTransactions,
   getPowensConnectors,
+  checkPowensConnectionExists,
   type PowensConnector,
 } from "@/lib/powens";
 import {
@@ -132,18 +133,47 @@ export async function renewOpenBankingConsent(
       return { success: false, error: "Token Powens corrompu — reconnectez le compte." };
     }
 
-    // Récupérer un code fraîchement signé pour la webview reconnect
+    // Vérifier que la connexion existe toujours côté Powens avant de
+    // construire une URL /fr/reconnect. Powens renvoie "Le lien utilisé est
+    // incorrect" quand le connection_id référence une connexion purgée.
+    // Si elle n'existe plus (ou si on n'a jamais stocké powensConnectionId),
+    // on bascule en /fr/connect avec le connector_id d'origine : le callback
+    // réaffecte un nouveau powensConnectionId à la même ligne BankConnection.
+    let powensConnectionIdForUrl: string | null = connection.powensConnectionId;
+    if (powensConnectionIdForUrl) {
+      try {
+        const userId = parseInt(connection.powensUserId, 10);
+        const exists = await checkPowensConnectionExists(
+          userId,
+          userToken,
+          powensConnectionIdForUrl,
+        );
+        if (!exists) {
+          console.warn(
+            `[renewOpenBankingConsent] Powens connection ${powensConnectionIdForUrl} not found, falling back to /connect`,
+          );
+          powensConnectionIdForUrl = null;
+          // Nettoyer le champ obsolète pour ne pas retomber dans le même piège.
+          await prisma.bankConnection.update({
+            where: { id: connection.id },
+            data: { powensConnectionId: null },
+          });
+        }
+      } catch (err) {
+        // Non bloquant : on continue avec le /reconnect — si Powens refuse,
+        // le user verra le même message mais au moins on n'empêche pas
+        // le renouvellement en cas d'erreur réseau transitoire.
+        console.warn("[renewOpenBankingConsent] checkPowensConnectionExists failed:", err);
+      }
+    }
+
+    // Récupérer un code fraîchement signé pour la webview
     const code = await getPowensWebviewCode(userToken);
     const webviewUrl = buildPowensWebviewUrl({
       code,
       state: connection.id,
       redirectUri: redirectUrl,
-      // Si powensConnectionId est connu (connexion déjà établie une fois),
-      // on construit une URL /fr/reconnect. Sans ça, Powens refuse en
-      // "Le lien utilisé est incorrect" car il ne sait pas quelle
-      // connexion renouveler. Pour les connexions pré-field (ancienneté),
-      // on tombe en /connect avec connector_ids.
-      powensConnectionId: connection.powensConnectionId,
+      powensConnectionId: powensConnectionIdForUrl,
       connectorId: connection.connectorId
         ? parseInt(connection.connectorId, 10) || undefined
         : undefined,
