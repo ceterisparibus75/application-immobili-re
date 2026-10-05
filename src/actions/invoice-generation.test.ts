@@ -61,6 +61,12 @@ const TENANT_ID = "clh3x2z4k0002qh8g7z1y2v3t";
 const LEASE_ID = "clh3x2z4k0003qh8g7z1y2v3t";
 const INVOICE_ID = "clh3x2z4k0004qh8g7z1y2v3t";
 
+// Date d'échéance toujours dans le futur (createInvoice refuse une échéance
+// antérieure à la date d'émission = new Date() au moment de l'exécution).
+const FUTURE_DUE_DATE = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+  .toISOString()
+  .slice(0, 10);
+
 beforeEach(() => {
   mockAuthSession("COMPTABLE", SOCIETY_ID);
   prismaMock.invoice.findMany.mockResolvedValue([] as never);
@@ -105,7 +111,7 @@ describe("createInvoice", () => {
 
     const result = await createInvoice(SOCIETY_ID, {
       tenantId: TENANT_ID,
-      dueDate: "2025-01-31",
+      dueDate: FUTURE_DUE_DATE,
       invoiceType: "APPEL_LOYER",
       lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0 }],
     });
@@ -123,11 +129,23 @@ describe("createInvoice", () => {
     const result = await createInvoice(SOCIETY_ID, {
       tenantId: TENANT_ID,
       leaseId: LEASE_ID,
-      dueDate: "2025-01-31",
+      dueDate: FUTURE_DUE_DATE,
       invoiceType: "APPEL_LOYER",
       lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0 }],
     });
     expect(result.success).toBe(true);
+  });
+
+  it("refuse une date d'échéance antérieure à aujourd'hui", async () => {
+    prismaMock.tenant.findFirst.mockResolvedValue({ id: TENANT_ID } as never);
+    const result = await createInvoice(SOCIETY_ID, {
+      tenantId: TENANT_ID,
+      dueDate: "2020-01-01",
+      invoiceType: "APPEL_LOYER",
+      lines: [{ label: "Loyer", quantity: 1, unitPrice: 800, vatRate: 0 }],
+    });
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/antérieure/i);
   });
 
   it("retourne une erreur si checkSubscriptionActive échoue (ligne 43)", async () => {
@@ -901,7 +919,7 @@ describe("createInvoice — branches restantes", () => {
 
     const result = await createInvoice(SOCIETY_ID, {
       tenantId: TENANT_ID,
-      dueDate: "2025-01-31",
+      dueDate: FUTURE_DUE_DATE,
       periodStart: "2025-01-01",
       periodEnd: "2025-01-31",
       invoiceType: "APPEL_LOYER",

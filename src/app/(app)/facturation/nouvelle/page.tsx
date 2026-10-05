@@ -70,6 +70,19 @@ function tenantLabel(t: { entityType: string; companyName?: string | null; first
     : `${t.firstName ?? ""} ${t.lastName ?? ""}`.trim() || (t.email ?? "—");
 }
 
+/** Date au format YYYY-MM-DD (compatible <input type="date">), fuseau local. */
+function toDateInputValue(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+const TODAY_INPUT = toDateInputValue(new Date());
+const DEFAULT_DUE_INPUT = toDateInputValue(
+  new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+);
+
 // ── Composant ─────────────────────────────────────────────────────────────
 
 export default function NouvelleFacturePage() {
@@ -153,6 +166,14 @@ export default function NouvelleFacturePage() {
     const formData = new FormData(e.currentTarget);
     const data = Object.fromEntries(formData.entries()) as Record<string, string>;
 
+    // Garde-fou : la date d'échéance ne peut pas être antérieure à aujourd'hui
+    // (la date d'émission est fixée côté serveur à new Date(), donc = aujourd'hui).
+    if (data.dueDate && data.dueDate < TODAY_INPUT) {
+      setError("La date d'échéance ne peut pas être antérieure à la date d'émission (aujourd'hui).");
+      setIsCreating(false);
+      return;
+    }
+
     const result = await createInvoice(activeSociety.id, {
       tenantId: data.tenantId!,
       leaseId: data.leaseId || null,
@@ -235,7 +256,17 @@ export default function NouvelleFacturePage() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="dueDate">Date d&apos;échéance *</Label>
-                  <Input id="dueDate" name="dueDate" type="date" required />
+                  <Input
+                    id="dueDate"
+                    name="dueDate"
+                    type="date"
+                    defaultValue={DEFAULT_DUE_INPUT}
+                    min={TODAY_INPUT}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Par défaut : aujourd&apos;hui + 30 jours. Ne peut pas être antérieure à l&apos;émission.
+                  </p>
                 </div>
                 {leases.length > 0 && (
                   <div className="space-y-2">

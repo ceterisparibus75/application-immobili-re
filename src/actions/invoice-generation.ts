@@ -69,6 +69,20 @@ export async function createInvoice(
     });
     if (!tenant) return { success: false, error: "Locataire introuvable" };
 
+    // Garde-fou : la date d'échéance ne peut pas être antérieure à la date
+    // d'émission (= aujourd'hui pour les factures manuelles). Comparaison
+    // au jour près — on tolère une échéance = jour d'émission.
+    const issueDate = new Date();
+    const dueDate = new Date(parsed.data.dueDate);
+    const issueDay = new Date(issueDate.getFullYear(), issueDate.getMonth(), issueDate.getDate());
+    const dueDay = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate());
+    if (dueDay.getTime() < issueDay.getTime()) {
+      return {
+        success: false,
+        error: "La date d'échéance ne peut pas être antérieure à la date d'émission.",
+      };
+    }
+
     const computedLines = computeLines(parsed.data.lines);
     const totalHT = computedLines.reduce((s, l) => s + l.totalHT, 0);
     const totalVAT = computedLines.reduce((s, l) => s + l.totalVAT, 0);
@@ -81,8 +95,8 @@ export async function createInvoice(
         leaseId: parsed.data.leaseId ?? null,
         invoiceType: parsed.data.invoiceType,
         status: "BROUILLON",
-        issueDate: new Date(),
-        dueDate: new Date(parsed.data.dueDate),
+        issueDate,
+        dueDate,
         periodStart: parsed.data.periodStart ? new Date(parsed.data.periodStart) : null,
         periodEnd: parsed.data.periodEnd ? new Date(parsed.data.periodEnd) : null,
         totalHT,
