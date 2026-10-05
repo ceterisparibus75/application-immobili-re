@@ -6,8 +6,19 @@
 
 import { env } from "@/lib/env";
 
+/**
+ * FQDN complet du domaine Powens (ex: "mtggroupe-sandbox.biapi.pro").
+ * Supporte les deux conventions d'env var :
+ *  - "mtggroupe-sandbox"            → on ajoute .biapi.pro
+ *  - "mtggroupe-sandbox.biapi.pro"  → tel quel
+ */
+function powensFqdn(): string {
+  const d = env.POWENS_DOMAIN;
+  return d.includes(".") ? d : `${d}.biapi.pro`;
+}
+
 function baseUrl(): string {
-  return `https://${env.POWENS_DOMAIN}.biapi.pro/2.0`;
+  return `https://${powensFqdn()}/2.0`;
 }
 
 function basicAuth(): string {
@@ -120,8 +131,10 @@ export function buildPowensWebviewUrl(params: {
    */
   powensConnectionId?: string | null;
 }): string {
+  // Powens attend le FQDN complet dans le paramètre `domain` de la webview
+  // (ex: "mtggroupe-sandbox.biapi.pro"). Sans ça : "Le lien utilisé est incorrect".
   const q = new URLSearchParams({
-    domain: env.POWENS_DOMAIN,
+    domain: powensFqdn(),
     client_id: env.POWENS_CLIENT_ID,
     redirect_uri: params.redirectUri,
     code: params.code,

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 
 vi.mock("@/lib/env", () => ({
   env: {
-    POWENS_DOMAIN: "mygestia.biapi.pro",
+    POWENS_DOMAIN: "mygestia",
     POWENS_CLIENT_ID: "client-123",
     POWENS_CLIENT_SECRET: "secret-abc",
   },
@@ -21,6 +21,7 @@ describe("buildPowensWebviewUrl", () => {
     expect(url).toContain("https://webview.powens.com/fr/connect");
     expect(url).toContain("code=auth-code-xyz");
     expect(url).toContain("state=state-abc");
+    // Powens attend le FQDN complet dans ?domain=, pas juste le sous-domaine.
     expect(url).toContain("domain=mygestia.biapi.pro");
     expect(url).toContain("client_id=client-123");
   });
