@@ -102,7 +102,11 @@ function TenantAddress({ address }: { address: string }) {
 export function InvoicePdf({ data }: { data: InvoicePdfData }) {
   const soc = data.society;
   const paid = data.payments.reduce((sum, p) => sum + p.amount, 0);
-  const totalToPay = data.previousBalance + data.totalTTC;
+  // Un avoir se SOUSTRAIT du solde du compte locataire, il ne s'y ajoute pas.
+  // On force le signe à partir d'isAvoir — la BDD stocke parfois totalTTC
+  // positif pour les avoirs (cf. getCreditNoteAmount).
+  const signedTotal = data.isAvoir ? -Math.abs(data.totalTTC) : data.totalTTC;
+  const totalToPay = data.previousBalance + signedTotal;
 
   // Mention légale : "{Forme juridique} au capital de {montant} €"
   const _noFormLabel = soc?.legalForm === "AUTRE" || soc?.legalForm === "PERSONNE_PHYSIQUE";
@@ -206,11 +210,18 @@ export function InvoicePdf({ data }: { data: InvoicePdfData }) {
         ) : null}
 
         <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", marginTop: 12, marginBottom: 4 }}>Situation de compte au {fmtDate(data.issueDate)}</Text>
-        <Text style={{ fontSize: 8, color: GRAY, marginBottom: 6 }}>{"Retrouvez ci-dessous la somme totale dont vous êtes redevable. Il s'agit du montant de votre solde précédent auquel s'ajoute le montant de cette facture."}</Text>
+        <Text style={{ fontSize: 8, color: GRAY, marginBottom: 6 }}>
+          {data.isAvoir
+            ? "Retrouvez ci-dessous le solde de votre compte après prise en compte de cet avoir, qui vient en déduction du montant précédemment dû."
+            : "Retrouvez ci-dessous la somme totale dont vous êtes redevable. Il s'agit du montant de votre solde précédent auquel s'ajoute le montant de cette facture."}
+        </Text>
         <View style={{ marginBottom: 12 }}>
           <View style={s.accountRow}><Text style={s.accountCellLeft}>Solde précédent</Text><Text style={s.accountCellRight}>{fmt(data.previousBalance)}</Text></View>
           <View style={s.accountRow}>
-            <Text style={[s.accountCellLeft, { fontFamily: "Helvetica-Bold" }]}>Total à payer au {fmtDate(data.dueDate)}</Text>
+            <Text style={[s.accountCellLeft, { fontFamily: "Helvetica-Bold" }]}>
+              {data.isAvoir ? "Nouveau solde au " : "Total à payer au "}
+              {fmtDate(data.dueDate)}
+            </Text>
             <Text style={[s.accountCellRight, { fontFamily: "Helvetica-Bold" }]}>{fmt(Math.max(0, totalToPay - paid))}</Text>
           </View>
         </View>
