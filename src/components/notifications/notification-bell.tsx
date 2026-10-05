@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Bell, Check, Calendar, AlertTriangle, Wrench, FileSignature,
-  CreditCard, TrendingUp, MessageSquare, Settings, Filter,
+  CreditCard, TrendingUp, MessageSquare, Settings, Filter, Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,6 +37,7 @@ const TYPE_ICONS: Record<NotificationType, React.ElementType> = {
   TICKET_CREATED: MessageSquare,
   TICKET_REPLY: MessageSquare,
   TICKET_STATUS_CHANGED: MessageSquare,
+  BANK_CONSENT_EXPIRING: Landmark,
 };
 
 type UrgencyLevel = "urgent" | "action" | "info";
@@ -48,6 +49,7 @@ const TYPE_URGENCY: Record<NotificationType, UrgencyLevel> = {
   DIAGNOSTIC_EXPIRING: "action",
   INSURANCE_EXPIRING: "action",
   RENT_REVISION: "action",
+  BANK_CONSENT_EXPIRING: "action",
   PAYMENT_RECEIVED: "info",
   MAINTENANCE_COMPLETED: "info",
   DOCUMENT_SIGNED: "info",

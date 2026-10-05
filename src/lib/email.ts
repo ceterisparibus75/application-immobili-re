@@ -855,6 +855,59 @@ interface InsuranceReminderEmailParams {
   bcc?: string | string[];
 }
 
+// ============================================================
+// CONSENTEMENT BANCAIRE — RAPPEL D'EXPIRATION PSD2
+// ============================================================
+
+interface BankConsentExpiryEmailParams {
+  to: string;
+  recipientName: string | null;
+  societyName: string;
+  institutionName: string;
+  accountName: string;
+  expiresAt: Date;
+  daysUntil: number; // négatif si déjà expiré
+  renewUrl: string;
+  proofContext?: EmailDeliveryProofContext;
+}
+
+export async function sendBankConsentExpiryEmail(
+  params: BankConsentExpiryEmailParams
+): Promise<EmailResult> {
+  const isExpired = params.daysUntil <= 0;
+  const greeting = params.recipientName
+    ? `Bonjour <strong>${params.recipientName}</strong>,`
+    : "Bonjour,";
+  const headline = isExpired
+    ? `Consentement bancaire expiré — ${params.institutionName}`
+    : `Consentement bancaire à renouveler sous ${params.daysUntil} jour${params.daysUntil > 1 ? "s" : ""}`;
+  const summaryLine = isExpired
+    ? `Le consentement PSD2 pour <strong>${params.institutionName} — ${params.accountName}</strong> a expiré le <strong>${params.expiresAt.toLocaleDateString("fr-FR")}</strong>. La synchronisation est stoppée.`
+    : `Le consentement PSD2 pour <strong>${params.institutionName} — ${params.accountName}</strong> expire le <strong>${params.expiresAt.toLocaleDateString("fr-FR")}</strong>. Passé cette date, la synchronisation sera stoppée.`;
+
+  const content = `
+    ${heading(headline)}
+    ${para(greeting)}
+    ${para(summaryLine)}
+    ${para("Un renouvellement en un clic est disponible depuis la page Banque de MyGestia.")}
+    ${ctaButton("Renouveler le consentement", params.renewUrl)}
+    ${para("Rappel : la réglementation PSD2 impose un renouvellement du consentement tous les 90 jours.", { muted: true, small: true })}
+    ${signature(params.societyName)}
+  `;
+
+  return sendMail(
+    params.to,
+    isExpired
+      ? `[Action requise] Consentement bancaire expiré — ${params.institutionName}`
+      : `[Action requise] Consentement bancaire — renouvellement sous ${params.daysUntil} j`,
+    baseTemplate(headline, content, { societyName: params.societyName }),
+    undefined,
+    undefined,
+    undefined,
+    params.proofContext
+  );
+}
+
 export async function sendInsuranceReminderEmail(params: InsuranceReminderEmailParams): Promise<EmailResult> {
   const content = `
     ${heading("Attestation d'assurance requise")}

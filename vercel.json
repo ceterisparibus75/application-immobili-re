@@ -62,6 +62,10 @@
     {
       "path": "/api/cron/daily-digest",
       "schedule": "30 7 * * *"
+    },
+    {
+      "path": "/api/cron/bank-consent-expiration",
+      "schedule": "0 8 * * *"
     }
   ]
 }

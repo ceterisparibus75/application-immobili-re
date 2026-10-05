@@ -2324,6 +2324,12 @@ model BankConnection {
   qontoSlugEncrypted      String? @db.Text // Slug organisation chiffré AES-256
   qontoSecretKeyEncrypted String? @db.Text // Secret key chiffrée AES-256
 
+  // Rappels d'expiration PSD2 — pour éviter d'envoyer plusieurs fois le même
+  // seuil d'alerte (D-15 / D-7 / D-2 / expiré). Le cron met à jour ces champs
+  // après chaque envoi réussi.
+  lastExpiryNoticeAt    DateTime?
+  lastExpiryNoticeStage String? // "D15" | "D7" | "D2" | "EXPIRED"
+
   society      Society       @relation(fields: [societyId], references: [id], onDelete: Cascade)
   bankAccounts BankAccount[]
 
@@ -3210,6 +3216,7 @@ enum NotificationType {
   TICKET_CREATED
   TICKET_REPLY
   TICKET_STATUS_CHANGED
+  BANK_CONSENT_EXPIRING
 }
 
 /// Notification in-app

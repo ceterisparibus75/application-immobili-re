@@ -22,6 +22,7 @@ FAILED_CANDIDATES=(
   "20260824180000_tenant_display_name"
   "20260916150000_tenant_mandataire_and_magic_link"
   "20260930100000_bank_account_sync_diagnostics"
+  "20261005150000_bank_consent_expiry_notice"
 )
 
 for m in "${FAILED_CANDIDATES[@]}"; do

@@ -56,6 +56,10 @@ export async function GET(request: NextRequest) {
         status: "active",
         powensConnectionId: powensConnectionId ?? null,
         expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+        // Reset du suivi d'alertes : la connexion vient d'être renouvelée,
+        // le prochain cycle de notifications (D-15 → EXPIRED) partira à zéro.
+        lastExpiryNoticeStage: null,
+        lastExpiryNoticeAt: null,
       },
     });
   } catch (err) {
