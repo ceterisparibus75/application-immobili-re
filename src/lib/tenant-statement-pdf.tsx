@@ -64,8 +64,15 @@ const s = StyleSheet.create({
   footerPage: { fontSize: 7, color: GRAY, textAlign: "center" },
 });
 
+/**
+ * Normalise tous les espaces insécables et étroits (U+00A0, U+2009, U+202F,
+ * U+2028, U+2029) en espace standard (U+0020). Les versions récentes de Node
+ * utilisent U+202F (NARROW NO-BREAK SPACE) comme séparateur de milliers et
+ * entre le montant et €, que Helvetica (polices par défaut de @react-pdf)
+ * rend par un glyphe de fallback (« / »).
+ */
 function sanitizeSpaces(str: string) {
-  return str.replace(/ | | | | /g, " ");
+  return str.replace(/[\u00A0\u2000-\u200B\u2028\u2029\u202F\u205F\u3000]/g, " ");
 }
 function fmt(v: number) {
   return sanitizeSpaces(new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v));

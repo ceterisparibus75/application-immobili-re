@@ -73,7 +73,13 @@ const s = StyleSheet.create({
   footerPage: { fontSize: 7, color: GRAY, textAlign: "center" },
 });
 
-function sanitizeSpaces(str: string) { return str.replace(/ | | | | /g, " "); }
+/**
+ * Normalise les espaces insecables et etroits en espace standard —
+ * Helvetica (@react-pdf) ne rend pas U+202F (NARROW NO-BREAK SPACE) qui est
+ * desormais le separateur de milliers de Intl.NumberFormat("fr-FR") en Node
+ * recent, et affiche un glyphe de fallback ("/").
+ */
+function sanitizeSpaces(str: string) { return str.replace(/[\u00A0\u2000-\u200B\u2028\u2029\u202F\u205F\u3000]/g, " "); }
 function fmt(v: number) { return sanitizeSpaces(new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(v)); }
 function fmtNum(v: number) { return sanitizeSpaces(new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(v)); }
 function fmtDate(iso: string) { return new Date(iso).toLocaleDateString("fr-FR"); }
