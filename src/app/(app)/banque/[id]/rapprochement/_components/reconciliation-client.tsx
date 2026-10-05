@@ -17,6 +17,7 @@ import {
   reconcileWithLoanLine,
   reconcileWithSupplierInvoice,
   reconcileWithBalanceAdjustment,
+  closeTransactionWithSurplusCredit,
   type ReconciliationCandidate,
   type BankReconciliationSuggestion,
 } from "@/actions/bank-reconciliation";
@@ -30,6 +31,10 @@ type Transaction = {
   label: string;
   reference: string | null;
   journalEntryId: string | null;
+  alreadyAllocated?: number;
+  remainingAmount?: number;
+  isPartiallyAllocated?: boolean;
+  allocatedTenants?: Array<{ id: string; name: string }>;
 };
 type Payment = {
   id: string;
@@ -184,6 +189,33 @@ export default function ReconciliationClient({
 
   function toggleTx(id: string) {
     setSelectedTxId((p) => (p === id ? null : id));
+  }
+
+  function handleCreditSurplus(transactionId: string, tenantName: string) {
+    if (!confirm(`Clôturer ce virement en créditant le reste au compte de ${tenantName} (reprise de solde) ?`)) return;
+    setOperationNotice({ type: "info", message: "Clôture en cours..." });
+    startTransition(() => {
+      void (async () => {
+        try {
+          const res = await closeTransactionWithSurplusCredit(societyId, transactionId);
+          if (res.success && res.data) {
+            setOperationNotice({
+              type: "success",
+              message: `${formatCurrency(res.data.creditedAmount)} crédités au compte locataire.`,
+            });
+            toast.success("Virement clôturé — surplus crédité");
+            router.refresh();
+          } else {
+            setOperationNotice({ type: "error", message: res.error ?? "Erreur" });
+            toast.error(res.error ?? "Erreur");
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : "Erreur";
+          setOperationNotice({ type: "error", message: msg });
+          toast.error(msg);
+        }
+      })();
+    });
   }
 
   function handleAutoReconcile() {
@@ -488,46 +520,72 @@ const KIND_LABELS: Record<string, string> = {
             ) : (
               <div className="divide-y">
                 {transactions.map((tx) => (
-                  <button
+                  <div
                     key={tx.id}
-                    onClick={() => toggleTx(tx.id)}
                     className={
-                      "w-full flex items-center justify-between p-4 text-left transition-colors " +
+                      "border-l-3 transition-colors " +
                       (selectedTxId === tx.id
-                        ? "bg-primary/10 border-l-3 border-primary"
-                        : "hover:bg-muted/50")
+                        ? "bg-primary/10 border-primary"
+                        : "hover:bg-muted/50 border-transparent")
                     }
                   >
-                    <div>
-                      <p className="text-sm font-medium">{tx.label}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(tx.transactionDate)}
-                      {tx.reference && ` · ${tx.reference}`}
-                      </p>
-                      {tx.journalEntryId && (
-                        <Badge variant="outline" className="mt-2 gap-1 text-[10px]">
-                          <FileText className="h-3 w-3" />
-                          BQUE
-                        </Badge>
-                      )}
-                      {suggestionsByTransaction.get(tx.id)?.bestCandidate && (
-                        <Badge variant="warning" className="mt-2 ml-1 text-[10px]">
-                          Suggestion {suggestionsByTransaction.get(tx.id)?.bestCandidate?.score}%
-                        </Badge>
-                      )}
-                    </div>
-                    <span
-                      className={
-                        "text-sm font-medium tabular-nums " +
-                        (tx.amount >= 0
-                          ? "text-[var(--color-status-positive)]"
-                          : "text-destructive")
-                      }
+                    <button
+                      onClick={() => toggleTx(tx.id)}
+                      className="w-full flex items-center justify-between p-4 text-left"
                     >
-                      {tx.amount >= 0 ? "+" : ""}
-                      {formatCurrency(tx.amount)}
-                    </span>
-                  </button>
+                      <div>
+                        <p className="text-sm font-medium">{tx.label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(tx.transactionDate)}
+                          {tx.reference && ` · ${tx.reference}`}
+                        </p>
+                        {tx.journalEntryId && (
+                          <Badge variant="outline" className="mt-2 gap-1 text-[10px]">
+                            <FileText className="h-3 w-3" />
+                            BQUE
+                          </Badge>
+                        )}
+                        {suggestionsByTransaction.get(tx.id)?.bestCandidate && (
+                          <Badge variant="warning" className="mt-2 ml-1 text-[10px]">
+                            Suggestion {suggestionsByTransaction.get(tx.id)?.bestCandidate?.score}%
+                          </Badge>
+                        )}
+                        {tx.isPartiallyAllocated && typeof tx.remainingAmount === "number" && tx.remainingAmount > 0 && (
+                          <Badge variant="warning" className="mt-2 ml-1 text-[10px]">
+                            Partiel : {formatCurrency(tx.alreadyAllocated ?? 0)} / {formatCurrency(tx.amount)} · reste {formatCurrency(tx.remainingAmount)}
+                          </Badge>
+                        )}
+                      </div>
+                      <span
+                        className={
+                          "text-sm font-medium tabular-nums " +
+                          (tx.amount >= 0
+                            ? "text-[var(--color-status-positive)]"
+                            : "text-destructive")
+                        }
+                      >
+                        {tx.amount >= 0 ? "+" : ""}
+                        {formatCurrency(tx.amount)}
+                      </span>
+                    </button>
+                    {tx.isPartiallyAllocated &&
+                      typeof tx.remainingAmount === "number" &&
+                      tx.remainingAmount > 0.005 &&
+                      tx.allocatedTenants &&
+                      tx.allocatedTenants.length === 1 && (
+                        <div className="px-4 pb-3 flex items-center gap-2 text-xs">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={isPending}
+                            onClick={() => handleCreditSurplus(tx.id, tx.allocatedTenants?.[0]?.name ?? "")}
+                          >
+                            Clôturer en créditant {formatCurrency(tx.remainingAmount)} à {tx.allocatedTenants[0].name}
+                          </Button>
+                        </div>
+                      )}
+                  </div>
                 ))}
               </div>
             )}

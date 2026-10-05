@@ -43,4 +43,5 @@ export {
   reconcileWithInvoice,
   reconcileWithLoanLine,
   reconcileTransactionWithAllocations,
+  closeTransactionWithSurplusCredit,
 } from "@/actions/bank-reconciliation-mutations";

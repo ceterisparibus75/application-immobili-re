@@ -24,7 +24,7 @@ export async function getUnreconciledTransactions(
 ) {
   if (!(await getOptionalSocietyActionContext(societyId))) return [];
 
-  return prisma.bankTransaction.findMany({
+  const rows = await prisma.bankTransaction.findMany({
     where: {
       bankAccountId,
       isReconciled: false,
@@ -37,8 +37,57 @@ export async function getUnreconciledTransactions(
       label: true,
       reference: true,
       journalEntryId: true,
+      reconciliations: {
+        select: {
+          amount: true,
+          payment: {
+            select: {
+              invoice: {
+                select: {
+                  tenantId: true,
+                  invoiceNumber: true,
+                  tenant: { select: { companyName: true, firstName: true, lastName: true, entityType: true } },
+                },
+              },
+            },
+          },
+        },
+      },
     },
     orderBy: { transactionDate: "desc" },
+  });
+
+  // Expose la part déjà allouée + le reste à affecter + un flag tenant unique
+  // (pour que l'UI puisse proposer "clôturer en créditant le reste" sans aller
+  // chercher d'autres infos).
+  return rows.map((tx) => {
+    const alreadyAllocated = tx.reconciliations.reduce((s, r) => s + r.amount, 0);
+    const remainingAmount = Math.round((tx.amount - alreadyAllocated) * 100) / 100;
+    const tenantIds = new Set<string>();
+    const tenants: Array<{ id: string; name: string }> = [];
+    for (const r of tx.reconciliations) {
+      const t = r.payment?.invoice?.tenant;
+      const tid = r.payment?.invoice?.tenantId;
+      if (!tid || tenantIds.has(tid)) continue;
+      tenantIds.add(tid);
+      const name =
+        t?.entityType === "PERSONNE_MORALE"
+          ? (t.companyName ?? "—")
+          : `${t?.firstName ?? ""} ${t?.lastName ?? ""}`.trim() || "—";
+      tenants.push({ id: tid, name });
+    }
+    return {
+      id: tx.id,
+      transactionDate: tx.transactionDate,
+      amount: tx.amount,
+      label: tx.label,
+      reference: tx.reference,
+      journalEntryId: tx.journalEntryId,
+      alreadyAllocated: Math.round(alreadyAllocated * 100) / 100,
+      remainingAmount,
+      isPartiallyAllocated: alreadyAllocated > 0.005,
+      allocatedTenants: tenants,
+    };
   });
 }
 

@@ -1377,3 +1377,138 @@ export async function reconcileTransactionWithAllocations(
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
+
+/**
+ * Clôture une BankTransaction partiellement rapprochée en créditant le reste
+ * (surplus / trop-perçu) au compte d'un locataire sous forme de reprise de
+ * solde créditrice (TenantBalanceAdjustment avec amount négatif).
+ *
+ * Déclenche aussi la mise à jour isReconciled=true + lie la reprise à la
+ * transaction via reconciledBankTransactionId. Si tenantId n'est pas fourni,
+ * tente de l'inférer des rapprochements existants (OK si un seul locataire).
+ */
+export async function closeTransactionWithSurplusCredit(
+  societyId: string,
+  transactionId: string,
+  tenantIdOverride?: string,
+): Promise<ActionResult<{ creditedAmount: number; tenantId: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const transaction = await prisma.bankTransaction.findFirst({
+      where: { id: transactionId, bankAccount: { societyId } },
+      include: {
+        reconciliations: {
+          select: {
+            amount: true,
+            payment: {
+              select: {
+                invoice: { select: { tenantId: true, leaseId: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!transaction) return { success: false, error: "Transaction introuvable" };
+    if (transaction.isReconciled) {
+      return { success: false, error: "Cette transaction est déjà entièrement rapprochée" };
+    }
+    if (transaction.amount <= 0) {
+      return { success: false, error: "Un crédit locataire nécessite une transaction entrante" };
+    }
+
+    const alreadyAllocated = transaction.reconciliations.reduce((s, r) => s + r.amount, 0);
+    const remaining = round2(transaction.amount - alreadyAllocated);
+    if (remaining <= 0.005) {
+      return { success: false, error: "Aucun reste à créditer sur cette transaction" };
+    }
+
+    // Déterminer le locataire bénéficiaire
+    let tenantId = tenantIdOverride ?? null;
+    let leaseId: string | null = null;
+    if (!tenantId) {
+      const tenantIds = new Set<string>();
+      const leaseIds = new Set<string>();
+      for (const r of transaction.reconciliations) {
+        if (r.payment?.invoice?.tenantId) tenantIds.add(r.payment.invoice.tenantId);
+        if (r.payment?.invoice?.leaseId) leaseIds.add(r.payment.invoice.leaseId);
+      }
+      if (tenantIds.size === 0) {
+        return {
+          success: false,
+          error:
+            "Impossible de déterminer le locataire — aucune facture rapprochée. Précisez le locataire explicitement.",
+        };
+      }
+      if (tenantIds.size > 1) {
+        return {
+          success: false,
+          error:
+            "Plusieurs locataires sont rapprochés sur cette transaction. Précisez explicitement à qui créditer le surplus.",
+        };
+      }
+      tenantId = Array.from(tenantIds)[0];
+      if (leaseIds.size === 1) leaseId = Array.from(leaseIds)[0];
+    }
+
+    // Vérifier que le locataire appartient bien à la société
+    const tenant = await prisma.tenant.findFirst({
+      where: { id: tenantId, societyId },
+      select: { id: true },
+    });
+    if (!tenant) return { success: false, error: "Locataire introuvable" };
+
+    await prisma.$transaction(async (tx) => {
+      await tx.tenantBalanceAdjustment.create({
+        data: {
+          societyId,
+          tenantId: tenantId!,
+          leaseId,
+          label: "Avoir — trop-perçu sur virement",
+          amount: -remaining,
+          dueDate: transaction.transactionDate,
+          notes: `Virement de ${transaction.amount.toFixed(2)} €. Reste de ${remaining.toFixed(2)} € crédité au compte locataire.`,
+          reference: transaction.reference ?? null,
+          source: "BANK_RECONCILIATION",
+          reconciledBankTransactionId: transactionId,
+          isReconciled: true,
+          reconciledAt: new Date(),
+        },
+      });
+
+      await tx.bankTransaction.update({
+        where: { id: transactionId },
+        data: { isReconciled: true },
+      });
+    });
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "TenantBalanceAdjustment",
+      entityId: transactionId,
+      details: {
+        action: "close_tx_with_surplus_credit",
+        transactionId,
+        tenantId,
+        creditedAmount: remaining,
+      },
+    });
+
+    revalidatePath("/banque");
+    revalidatePath(`/banque/${transaction.bankAccountId}`);
+    revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
+    revalidatePath("/comptabilite");
+    revalidatePath("/facturation");
+    revalidatePath(`/locataires/${tenantId}`);
+
+    return { success: true, data: { creditedAmount: remaining, tenantId } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[closeTransactionWithSurplusCredit]", error);
+    return { success: false, error: "Erreur lors de la clôture du virement" };
+  }
+}
