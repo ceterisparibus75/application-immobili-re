@@ -168,6 +168,10 @@ export async function autoReconcile(
     revalidatePath("/comptabilite");
     revalidatePath("/facturation");
     revalidatePath("/locataires");
+    // En auto, on ne connaît pas la liste exacte des locataires impactés —
+    // on invalide le segment /locataires/[id] en entier pour que chaque fiche
+    // locataire soit re-fetchée au prochain rendu.
+    revalidatePath("/locataires/[id]", "page");
 
     return { success: true, data: { matched } };
   } catch (error) {
@@ -760,6 +764,7 @@ export async function reconcileWithBalanceAdjustment(
     revalidatePath(`/banque/${transaction.bankAccountId}/rapprochement`);
     revalidatePath("/comptabilite");
     revalidatePath("/locataires");
+    revalidatePath(`/locataires/${adjustment.tenantId}`);
 
     return { success: true };
   } catch (error) {
