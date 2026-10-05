@@ -535,6 +535,8 @@ interface InvoiceEmailParams {
   period: string;
   societyName: string;
   typeLabel?: string;
+  /** Avoir = somme créditée au compte locataire (pas de règlement attendu). */
+  isAvoir?: boolean;
   items?: Array<{ label: string; amount: number }>;
   pdfAttachment?: { filename: string; content: Buffer };
   bcc?: string | string[];
@@ -544,12 +546,24 @@ interface InvoiceEmailParams {
 export async function sendInvoiceEmail(params: InvoiceEmailParams): Promise<EmailResult> {
   const typeLabel = params.typeLabel ?? "votre facture";
   const typeLabelCapitalized = typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1);
+  const isAvoir = params.isAvoir === true;
+
+  // Un avoir n'appelle pas de règlement : on remplace la phrase « régler » par
+  // une mention qui explique que la somme est créditée au compte locataire.
+  const bodyParagraphs = isAvoir
+    ? [
+        para(`Nous vous prions de bien vouloir trouver ci-joint ${typeLabel} n°&nbsp;<strong>${params.invoiceRef}</strong> concernant vos locaux pour la période de <strong>${params.period}</strong>.`),
+        para(`Le montant de <strong>${new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(params.amount)}</strong> est crédité sur votre compte locataire et viendra en déduction du prochain appel de loyer. Aucune action n'est requise de votre part.`),
+      ]
+    : [
+        para(`Nous vous prions de bien vouloir trouver ci-joint ${typeLabel} n°&nbsp;<strong>${params.invoiceRef}</strong> concernant vos locaux pour la période de <strong>${params.period}</strong>.`),
+        para("Nous vous remercions de bien vouloir régler cette somme à la date d'échéance indiquée."),
+      ];
 
   const content = `
     ${heading(`${typeLabelCapitalized} — ${params.period}`)}
     ${para("Madame, Monsieur,")}
-    ${para(`Nous vous prions de bien vouloir trouver ci-joint ${typeLabel} n°&nbsp;<strong>${params.invoiceRef}</strong> concernant vos locaux pour la période de <strong>${params.period}</strong>.`)}
-    ${para("Nous vous remercions de bien vouloir régler cette somme à la date d'échéance indiquée.")}
+    ${bodyParagraphs.join("\n")}
     ${para("Pour toute question relative à ce document, n'hésitez pas à nous contacter.")}
     ${para("Nous vous prions d'agréer, Madame, Monsieur, l'expression de nos salutations distinguées.")}
     ${signature(`Le gérant — ${params.societyName}`)}

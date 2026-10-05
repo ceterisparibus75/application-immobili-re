@@ -282,6 +282,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
           period,
           societyName: soc?.name ?? "",
           typeLabel,
+          isAvoir: invoice.invoiceType === "AVOIR",
           items: invoice.lines.map((l) => ({ label: l.label, amount: l.totalTTC })),
           pdfAttachment: { filename: pdfFileName, content: pdfBuffer },
           bcc,

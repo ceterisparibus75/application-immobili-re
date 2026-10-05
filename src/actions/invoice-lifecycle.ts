@@ -462,6 +462,7 @@ export async function sendInvoiceToTenant(
       dueDate: new Date(invoice.dueDate).toLocaleDateString("fr-FR"),
       period,
       societyName: invoice.society?.name ?? "",
+      isAvoir: invoice.invoiceType === "AVOIR",
       items: invoice.lines.map((l) => ({ label: l.label, amount: l.totalTTC })),
       bcc: mandataireBcc.length > 0 ? mandataireBcc : undefined,
       proofContext: {
