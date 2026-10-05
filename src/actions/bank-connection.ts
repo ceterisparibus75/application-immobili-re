@@ -100,6 +100,88 @@ export async function initiateOpenBanking(
   }
 }
 
+// ─── Diagnostic : expose ce qu'on enverrait à Powens, sans redirection ─────
+// Utilisé quand "Renouveler" échoue avec "Le lien utilisé est incorrect" :
+// permet à l'utilisateur de comparer caractère par caractère la redirectUri
+// avec le whitelist de la console Powens, et de voir les autres paramètres.
+export async function diagnosePowensRenewal(
+  societyId: string,
+  connectionId: string,
+): Promise<
+  ActionResult<{
+    appUrl: string;
+    redirectUri: string;
+    powensDomain: string;
+    clientId: string;
+    hasToken: boolean;
+    powensUserId: string | null;
+    powensConnectionId: string | null;
+    connectorId: string | null;
+    connectionCheckResult: "ok" | "not_found" | "error" | "skipped";
+    connectionCheckError: string | null;
+    mode: "reconnect" | "connect";
+  }>
+> {
+  try {
+    await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const connection = await prisma.bankConnection.findFirst({
+      where: { id: connectionId, societyId },
+    });
+    if (!connection) return { success: false, error: "Connexion introuvable" };
+
+    const appUrl = env.AUTH_URL ?? "http://localhost:3000";
+    const redirectUri = appUrl + "/api/banque/callback";
+
+    let connectionCheckResult: "ok" | "not_found" | "error" | "skipped" = "skipped";
+    let connectionCheckError: string | null = null;
+    if (
+      connection.powensAccessToken &&
+      connection.powensUserId &&
+      connection.powensConnectionId
+    ) {
+      try {
+        const userToken = decrypt(connection.powensAccessToken);
+        const userId = parseInt(connection.powensUserId, 10);
+        const exists = await checkPowensConnectionExists(
+          userId,
+          userToken,
+          connection.powensConnectionId,
+        );
+        connectionCheckResult = exists ? "ok" : "not_found";
+      } catch (err) {
+        connectionCheckResult = "error";
+        connectionCheckError = err instanceof Error ? err.message : String(err);
+      }
+    }
+
+    const willUseReconnect =
+      connectionCheckResult === "ok" && !!connection.powensConnectionId;
+
+    return {
+      success: true,
+      data: {
+        appUrl,
+        redirectUri,
+        powensDomain: env.POWENS_DOMAIN,
+        clientId: env.POWENS_CLIENT_ID,
+        hasToken: !!connection.powensAccessToken,
+        powensUserId: connection.powensUserId,
+        powensConnectionId: connection.powensConnectionId,
+        connectorId: connection.connectorId,
+        connectionCheckResult,
+        connectionCheckError,
+        mode: willUseReconnect ? "reconnect" : "connect",
+      },
+    };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[diagnosePowensRenewal]", error);
+    return { success: false, error: "Erreur diagnostic" };
+  }
+}
+
 // ─── Renouveler le consentement PSD2 d'une connexion existante ──────────────
 // Le mandat Powens expire tous les 90 jours (PSD2). Cette action réutilise
 // l'utilisateur Powens déjà enregistré et régénère une webview URL pour la
@@ -198,6 +280,13 @@ export async function renewOpenBankingConsent(
         ? parseInt(connection.connectorId, 10) || undefined
         : undefined,
     });
+
+    // Log serveur du résultat exact — permet de retrouver l'URL dans les
+    // logs Vercel pour comparaison avec le whitelist Powens quand l'utilisateur
+    // tombe sur "Le lien utilisé est incorrect".
+    console.info(
+      `[renewOpenBankingConsent] bank=${connection.id} redirectUri=${redirectUrl} mode=${powensConnectionIdForUrl ? "reconnect" : "connect"} url=${webviewUrl}`,
+    );
 
     // Repasser en "pending" pendant que l'utilisateur autorise
     await prisma.bankConnection.update({

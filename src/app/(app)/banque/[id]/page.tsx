@@ -32,6 +32,7 @@ import SyncButton from "./_components/sync-button";
 import RecalculateButton from "./_components/recalculate-button";
 import { ExportTransactions } from "@/components/exports/export-transactions";
 import { RenewConsentButton } from "../_components/renew-consent-button";
+import { PowensDiagnosticButton } from "../_components/powens-diagnostic-button";
 
 export default async function BankAccountDetailPage({
   params,
@@ -134,11 +135,14 @@ export default async function BankAccountDetailPage({
             <SyncButton bankAccountId={account.id} societyId={societyId} />
           )}
           {account.connection?.provider === "POWENS" && account.connection.id && (
-            <RenewConsentButton
-              connectionId={account.connection.id}
-              label="Renouveler consentement"
-              variant="outline"
-            />
+            <>
+              <RenewConsentButton
+                connectionId={account.connection.id}
+                label="Renouveler consentement"
+                variant="outline"
+              />
+              <PowensDiagnosticButton connectionId={account.connection.id} />
+            </>
           )}
           <Link href={`/banque/${id}/rapprochement`}>
             <Button variant="outline" className="rounded-lg border-border/60">
