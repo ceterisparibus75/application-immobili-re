@@ -119,30 +119,35 @@ export function computeLines(
   });
 }
 
-/** Numérotation atomique — incrémente le compteur dans la transaction. */
+/**
+ * Numérotation atomique — incrément en 1 round-trip SQL pour éviter la race
+ * condition « findUnique puis update » : deux validations simultanées
+ * pouvaient toutes deux voir l'ancien état et chacune reset à 1 (ou renvoyer
+ * le même increment) → doublon de numéro. Le CASE ... WHEN à l'intérieur du
+ * UPDATE verrouille la ligne et bascule reset / increment de manière atomique.
+ */
 export async function getNextInvoiceNumber(
   societyId: string,
   tx: Prisma.TransactionClient
 ): Promise<string> {
   const currentYear = new Date().getFullYear();
 
-  const current = await tx.society.findUnique({
-    where: { id: societyId },
-    select: { invoiceNumberYear: true, nextInvoiceNumber: true, invoicePrefix: true },
-  });
+  const rows = await tx.$queryRaw<Array<{ nextInvoiceNumber: number; invoicePrefix: string | null }>>`
+    UPDATE "Society"
+    SET
+      "invoiceNumberYear" = ${currentYear},
+      "nextInvoiceNumber" = CASE
+        WHEN "invoiceNumberYear" = ${currentYear} THEN "nextInvoiceNumber" + 1
+        ELSE 1
+      END
+    WHERE id = ${societyId}
+    RETURNING "nextInvoiceNumber", "invoicePrefix"
+  `;
+  if (!rows || rows.length === 0) throw new Error("Société introuvable pour la numérotation");
+  const { nextInvoiceNumber, invoicePrefix } = rows[0];
 
-  const yearChanged = !current || current.invoiceNumberYear !== currentYear;
-
-  const society = await tx.society.update({
-    where: { id: societyId },
-    data: yearChanged
-      ? { invoiceNumberYear: currentYear, nextInvoiceNumber: 1 }
-      : { nextInvoiceNumber: { increment: 1 } },
-    select: { nextInvoiceNumber: true, invoicePrefix: true },
-  });
-
-  const prefix = (current?.invoicePrefix?.toUpperCase() || "FAC");
-  return `${prefix}-${currentYear}-${String(society.nextInvoiceNumber).padStart(4, "0")}`;
+  const prefix = (invoicePrefix?.toUpperCase() || "FAC");
+  return `${prefix}-${currentYear}-${String(nextInvoiceNumber).padStart(4, "0")}`;
 }
 
 /** Numérotation atomique des quittances de loyer — séquence séparée des factures.
@@ -155,22 +160,19 @@ export async function getNextReceiptNumber(
 ): Promise<string> {
   const currentYear = new Date().getFullYear();
 
-  const current = await tx.society.findUnique({
-    where: { id: societyId },
-    select: { receiptNumberYear: true, nextReceiptNumber: true },
-  });
-
-  const yearChanged = !current || current.receiptNumberYear !== currentYear;
-
-  const society = await tx.society.update({
-    where: { id: societyId },
-    data: yearChanged
-      ? { receiptNumberYear: currentYear, nextReceiptNumber: 1 }
-      : { nextReceiptNumber: { increment: 1 } },
-    select: { nextReceiptNumber: true },
-  });
-
-  return `QIT-${currentYear}-${String(society.nextReceiptNumber).padStart(4, "0")}`;
+  const rows = await tx.$queryRaw<Array<{ nextReceiptNumber: number }>>`
+    UPDATE "Society"
+    SET
+      "receiptNumberYear" = ${currentYear},
+      "nextReceiptNumber" = CASE
+        WHEN "receiptNumberYear" = ${currentYear} THEN "nextReceiptNumber" + 1
+        ELSE 1
+      END
+    WHERE id = ${societyId}
+    RETURNING "nextReceiptNumber"
+  `;
+  if (!rows || rows.length === 0) throw new Error("Société introuvable pour la numérotation");
+  return `QIT-${currentYear}-${String(rows[0].nextReceiptNumber).padStart(4, "0")}`;
 }
 
 /** Numérotation atomique des avoirs — séquence séparée des factures. */
@@ -180,26 +182,25 @@ export async function getNextCreditNoteNumber(
 ): Promise<string> {
   const currentYear = new Date().getFullYear();
 
-  const current = await tx.society.findUnique({
-    where: { id: societyId },
-    select: { creditNoteNumberYear: true, nextCreditNoteNumber: true, invoicePrefix: true },
-  });
-
-  const yearChanged = !current || current.creditNoteNumberYear !== currentYear;
-
-  const society = await tx.society.update({
-    where: { id: societyId },
-    data: yearChanged
-      ? { creditNoteNumberYear: currentYear, nextCreditNoteNumber: 1 }
-      : { nextCreditNoteNumber: { increment: 1 } },
-    select: { nextCreditNoteNumber: true, invoicePrefix: true },
-  });
+  const rows = await tx.$queryRaw<Array<{ nextCreditNoteNumber: number; invoicePrefix: string | null }>>`
+    UPDATE "Society"
+    SET
+      "creditNoteNumberYear" = ${currentYear},
+      "nextCreditNoteNumber" = CASE
+        WHEN "creditNoteNumberYear" = ${currentYear} THEN "nextCreditNoteNumber" + 1
+        ELSE 1
+      END
+    WHERE id = ${societyId}
+    RETURNING "nextCreditNoteNumber", "invoicePrefix"
+  `;
+  if (!rows || rows.length === 0) throw new Error("Société introuvable pour la numérotation");
+  const { nextCreditNoteNumber, invoicePrefix } = rows[0];
 
   // Dériver le préfixe avoir : remplacer les 2 derniers caractères par "AV"
   // Ex : MTGOI → MTGAV, FAC → FAV
-  const invoicePrefix = (current?.invoicePrefix?.toUpperCase() || "FAC");
-  const prefix = invoicePrefix.length >= 2 ? invoicePrefix.slice(0, -2) + "AV" : invoicePrefix + "AV";
-  return `${prefix}-${currentYear}-${String(society.nextCreditNoteNumber).padStart(4, "0")}`;
+  const prefix = invoicePrefix?.toUpperCase() ?? "FAC";
+  const avoirPrefix = prefix.length >= 2 ? prefix.slice(0, -2) + "AV" : prefix + "AV";
+  return `${avoirPrefix}-${currentYear}-${String(nextCreditNoteNumber).padStart(4, "0")}`;
 }
 /** Calcule les dates de début/fin d'une période à partir d'un mois (ex: "2025-01").
  *  Pour ANNUEL avec un billingAnchor (date contractuelle d'échéance non

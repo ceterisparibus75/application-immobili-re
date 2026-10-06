@@ -73,8 +73,9 @@ describe("validateInvoice", () => {
     prismaMock.invoice.findFirst.mockResolvedValue(buildInvoice({ id: VALID_CUID, status: InvoiceStatus.BROUILLON, invoiceNumber: null }) as never);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
-    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "FAC" } as never);
-    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 1, invoicePrefix: "FAC" } as never);
+    prismaMock.$queryRaw.mockResolvedValue([
+      { nextInvoiceNumber: 1, nextCreditNoteNumber: 1, nextReceiptNumber: 1, invoicePrefix: "FAC" },
+    ] as never);
     prismaMock.invoice.update.mockResolvedValue({ invoiceNumber: "FAC-2025-0001" } as never);
     const r = await validateInvoice("society-1", VALID_CUID);
     expect(r.success).toBe(true);

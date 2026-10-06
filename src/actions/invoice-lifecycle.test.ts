@@ -372,8 +372,9 @@ describe("validateInvoice", () => {
     prismaMock.invoice.findFirst.mockResolvedValue(makeInvoice({ status: "BROUILLON", invoiceNumber: null }) as never);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
-    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2026, invoicePrefix: "FAC" } as never);
-    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 1, invoicePrefix: "FAC" } as never);
+    prismaMock.$queryRaw.mockResolvedValue([
+      { nextInvoiceNumber: 1, nextCreditNoteNumber: 1, nextReceiptNumber: 1, invoicePrefix: "FAC" },
+    ] as never);
     prismaMock.invoice.update.mockResolvedValue({ invoiceNumber: "FAC-2026-0001" } as never);
 
     const result = await validateInvoice(SOCIETY_ID, INVOICE_ID);
@@ -478,8 +479,9 @@ describe("validateBatchInvoices", () => {
     ] as never);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
-    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "FAC" } as never);
-    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 1, invoicePrefix: "FAC" } as never);
+    prismaMock.$queryRaw.mockResolvedValue([
+      { nextInvoiceNumber: 1, nextCreditNoteNumber: 1, nextReceiptNumber: 1, invoicePrefix: "FAC" },
+    ] as never);
     prismaMock.invoice.update.mockResolvedValue({} as never);
 
     const result = await validateBatchInvoices(SOCIETY_ID, ["id1", "id2", "id3"]);
@@ -603,8 +605,9 @@ describe("cancelInvoice", () => {
       ] }) as never
     );
     prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
-    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "FAC" } as never);
-    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 1, invoicePrefix: "FAC" } as never);
+    prismaMock.$queryRaw.mockResolvedValue([
+      { nextInvoiceNumber: 1, nextCreditNoteNumber: 1, nextReceiptNumber: 1, invoicePrefix: "FAC" },
+    ] as never);
     prismaMock.invoice.create.mockResolvedValue({ id: "avoir-id" } as never);
     prismaMock.invoice.update.mockResolvedValue({} as never);
 
@@ -760,8 +763,9 @@ describe("generateAndSendQuittance", () => {
       }) as never)
       .mockResolvedValueOnce(null as never);
     prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
-    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "FAC" } as never);
-    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 5, invoicePrefix: "FAC" } as never);
+    prismaMock.$queryRaw.mockResolvedValue([
+      { nextInvoiceNumber: 5, nextCreditNoteNumber: 5, nextReceiptNumber: 5, invoicePrefix: "FAC" },
+    ] as never);
     prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
     prismaMock.payment.create.mockResolvedValue({} as never);
     prismaMock.invoice.update.mockResolvedValue({} as never);
@@ -792,8 +796,9 @@ describe("generateAndSendQuittance", () => {
       .mockResolvedValueOnce(null as never)
       .mockResolvedValueOnce(makeFullQuittance(QUITTANCE_ID) as never);
     prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
-    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "QIT" } as never);
-    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 2, invoicePrefix: "QIT" } as never);
+    prismaMock.$queryRaw.mockResolvedValue([
+      { nextInvoiceNumber: 2, nextCreditNoteNumber: 2, nextReceiptNumber: 2, invoicePrefix: "QIT" },
+    ] as never);
     prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
     prismaMock.payment.create.mockResolvedValue({ id: "payment-1" } as never);
     prismaMock.invoice.update.mockResolvedValue({} as never);
@@ -820,8 +825,9 @@ describe("generateAndSendQuittance", () => {
         .mockResolvedValueOnce(null as never)
         .mockResolvedValueOnce(quittanceWithLogo as never);
       prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
-      prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "QIT" } as never);
-      prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 2, invoicePrefix: "QIT" } as never);
+      prismaMock.$queryRaw.mockResolvedValue([
+        { nextInvoiceNumber: 2, nextCreditNoteNumber: 2, nextReceiptNumber: 2, invoicePrefix: "QIT" },
+      ] as never);
       prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
       prismaMock.payment.create.mockResolvedValue({ id: "payment-1" } as never);
       prismaMock.invoice.update.mockResolvedValue({} as never);
@@ -850,8 +856,9 @@ describe("generateAndSendQuittance", () => {
         .mockResolvedValueOnce(null as never)
         .mockResolvedValueOnce(makeFullQuittance(QUITTANCE_ID) as never);
       prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
-      prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "QIT" } as never);
-      prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 2, invoicePrefix: "QIT" } as never);
+      prismaMock.$queryRaw.mockResolvedValue([
+        { nextInvoiceNumber: 2, nextCreditNoteNumber: 2, nextReceiptNumber: 2, invoicePrefix: "QIT" },
+      ] as never);
       prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
       prismaMock.payment.create.mockResolvedValue({ id: "payment-1" } as never);
       prismaMock.invoice.update.mockResolvedValue({} as never);
@@ -893,8 +900,9 @@ describe("generateAndSendQuittance", () => {
         .mockResolvedValueOnce(null as never)
         .mockResolvedValueOnce(quittanceWithLogo as never);
       prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
-      prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "QIT" } as never);
-      prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 2, invoicePrefix: "QIT" } as never);
+      prismaMock.$queryRaw.mockResolvedValue([
+        { nextInvoiceNumber: 2, nextCreditNoteNumber: 2, nextReceiptNumber: 2, invoicePrefix: "QIT" },
+      ] as never);
       prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
       prismaMock.payment.create.mockResolvedValue({ id: "payment-1" } as never);
       prismaMock.invoice.update.mockResolvedValue({} as never);
@@ -930,8 +938,9 @@ describe("generateAndSendQuittance", () => {
         .mockResolvedValueOnce(null as never)
         .mockResolvedValueOnce(quittanceWithLogo as never);
       prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
-      prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "QIT" } as never);
-      prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 2, invoicePrefix: "QIT" } as never);
+      prismaMock.$queryRaw.mockResolvedValue([
+        { nextInvoiceNumber: 2, nextCreditNoteNumber: 2, nextReceiptNumber: 2, invoicePrefix: "QIT" },
+      ] as never);
       prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
       prismaMock.payment.create.mockResolvedValue({ id: "payment-1" } as never);
       prismaMock.invoice.update.mockResolvedValue({} as never);
@@ -958,8 +967,9 @@ describe("generateAndSendQuittance", () => {
       .mockRejectedValueOnce(new Error("DB failure inside generateQuittancePdfAndSend"));
 
     prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
-    prismaMock.society.findUnique.mockResolvedValue({ invoiceNumberYear: 2025, invoicePrefix: "QIT" } as never);
-    prismaMock.society.update.mockResolvedValue({ nextInvoiceNumber: 2, invoicePrefix: "QIT" } as never);
+    prismaMock.$queryRaw.mockResolvedValue([
+      { nextInvoiceNumber: 2, nextCreditNoteNumber: 2, nextReceiptNumber: 2, invoicePrefix: "QIT" },
+    ] as never);
     prismaMock.invoice.create.mockResolvedValue({ id: QUITTANCE_ID } as never);
     prismaMock.payment.create.mockResolvedValue({} as never);
     prismaMock.invoice.update.mockResolvedValue({} as never);

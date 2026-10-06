@@ -238,41 +238,29 @@ describe("getNextInvoiceNumber", () => {
   const currentYear = new Date().getFullYear();
 
   it("génère un numéro avec le préfixe et l'année courante", async () => {
-    prismaMock.society.findUnique.mockResolvedValue({
-      invoiceNumberYear: currentYear,
-      nextInvoiceNumber: 4,
-      invoicePrefix: "FAC",
-    } as never);
-    prismaMock.society.update.mockResolvedValue({
-      nextInvoiceNumber: 5,
-      invoicePrefix: "FAC",
-    } as never);
+    // La fonction est désormais atomique via $queryRaw (UPDATE ... RETURNING)
+    // qui gère reset/increment en 1 round-trip. On mocke la réponse directe.
+    prismaMock.$queryRaw.mockResolvedValue([
+      { nextInvoiceNumber: 5, invoicePrefix: "FAC" },
+    ] as never);
 
     const num = await getNextInvoiceNumber("society-1", prismaMock as never);
     expect(num).toBe(`FAC-${currentYear}-0005`);
   });
 
   it("repart à 1 si l'année a changé", async () => {
-    prismaMock.society.findUnique.mockResolvedValue({
-      invoiceNumberYear: 2023,
-      nextInvoiceNumber: 99,
-      invoicePrefix: "INV",
-    } as never);
-    prismaMock.society.update.mockResolvedValue({
-      nextInvoiceNumber: 1,
-      invoicePrefix: "INV",
-    } as never);
+    prismaMock.$queryRaw.mockResolvedValue([
+      { nextInvoiceNumber: 1, invoicePrefix: "INV" },
+    ] as never);
 
     const num = await getNextInvoiceNumber("society-1", prismaMock as never);
     expect(num).toBe(`INV-${currentYear}-0001`);
   });
 
   it("utilise le préfixe FAC si aucun préfixe défini", async () => {
-    prismaMock.society.findUnique.mockResolvedValue(null as never);
-    prismaMock.society.update.mockResolvedValue({
-      nextInvoiceNumber: 1,
-      invoicePrefix: null,
-    } as never);
+    prismaMock.$queryRaw.mockResolvedValue([
+      { nextInvoiceNumber: 1, invoicePrefix: null },
+    ] as never);
 
     const num = await getNextInvoiceNumber("society-1", prismaMock as never);
     expect(num).toBe(`FAC-${currentYear}-0001`);
