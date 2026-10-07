@@ -5,10 +5,8 @@ vi.mock("@/lib/audit", () => ({ createAuditLog: vi.fn().mockResolvedValue(undefi
 
 import { prismaMock } from "@/test/mocks/prisma";
 import { mockAuthSession, mockUnauthenticated } from "@/test/helpers";
-import {
-  assignFecNumbersToFiscalYear,
-  formatFecEcritureNum,
-} from "./accounting-fec-numbering";
+import { assignFecNumbersToFiscalYear } from "./accounting-fec-numbering";
+import { formatFecEcritureNum } from "@/lib/fec-numbering";
 
 const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
 const FISCAL_YEAR_ID = "clh3x2z4k0001qh8g7z1y2v3u";

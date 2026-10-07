@@ -26,12 +26,10 @@ import {
 import { createAuditLog } from "@/lib/audit";
 import { ForbiddenError } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-
-const FEC_NUM_WIDTH = 8;
-
-export function formatFecEcritureNum(sequence: number): string {
-  return String(sequence).padStart(FEC_NUM_WIDTH, "0");
-}
+// Helper pur déplacé dans src/lib/ car Next.js 16 interdit les exports
+// non-async dans un fichier "use server". Importez-le directement depuis
+// "@/lib/fec-numbering" dans le code appelant.
+import { formatFecEcritureNum } from "@/lib/fec-numbering";
 
 export interface AssignFecNumbersResult {
   fiscalYearId: string;
