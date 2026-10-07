@@ -193,6 +193,11 @@ const _fetchOwnerAnalyticsData = unstable_cache(
           purchaseValue: true,
           amount: true,
           lender: true,
+          // loanType + currentBalance pour aligner le calcul de dette
+          // sur /emprunts/page.tsx — les comptes courants d'associés sont
+          // encourus au solde réel, pas au nominal.
+          loanType: true,
+          currentBalance: true,
           amortizationLines: {
             where: { dueDate: { lte: now } },
             orderBy: { period: "desc" },
@@ -293,17 +298,20 @@ const _fetchOwnerAnalyticsData = unstable_cache(
     const initialCapitalMap = new Map<string, number>();
     for (const loan of loans) {
       initialCapitalMap.set(loan.societyId, (initialCapitalMap.get(loan.societyId) ?? 0) + Number(loan.amount));
-      const line = loan.amortizationLines[0];
-      if (line) {
-        debtMap.set(loan.societyId, (debtMap.get(loan.societyId) ?? 0) + Number(line.remainingBalance));
-        loanPayMap.set(loan.societyId, (loanPayMap.get(loan.societyId) ?? 0) + Number(line.totalPayment));
+      // Logique alignée sur /emprunts/page.tsx et analytics.ts :
+      // - COMPTE_COURANT → currentBalance (solde du compte, pas le nominal)
+      // - Autres → remainingBalance de la dernière échéance passée, fallback
+      //   sur amount nominal si aucune échéance encore passée.
+      if (loan.loanType === "COMPTE_COURANT") {
+        debtMap.set(loan.societyId, (debtMap.get(loan.societyId) ?? 0) + Number(loan.currentBalance ?? 0));
       } else {
-        // Fallback : emprunt sans échéance passée (fraîchement créé, ou
-        // IN_FINE/BULLET sans échéance intermédiaire) → on compte le
-        // capital nominal comme dette. Même logique que analytics.ts:432
-        // pour que le total consolidé matche la somme des totaux par
-        // société.
-        debtMap.set(loan.societyId, (debtMap.get(loan.societyId) ?? 0) + Number(loan.amount));
+        const line = loan.amortizationLines[0];
+        if (line) {
+          debtMap.set(loan.societyId, (debtMap.get(loan.societyId) ?? 0) + Number(line.remainingBalance));
+          loanPayMap.set(loan.societyId, (loanPayMap.get(loan.societyId) ?? 0) + Number(line.totalPayment));
+        } else {
+          debtMap.set(loan.societyId, (debtMap.get(loan.societyId) ?? 0) + Number(loan.amount));
+        }
       }
     }
 

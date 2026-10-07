@@ -196,7 +196,11 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   const activeLoansForDebtPromise = prisma.loan.findMany({
     where: { societyId: { in: societyIds }, status: "EN_COURS" },
     select: {
+      // loanType + currentBalance pour aligner le calcul de dette sur
+      // /emprunts/page.tsx — les comptes courants d'associés sont encourus
+      // au solde réel (currentBalance), pas au nominal (amount).
       id: true, amount: true, purchaseValue: true, lender: true,
+      loanType: true, currentBalance: true,
       amortizationLines: {
         orderBy: { period: "desc" },
         where: { dueDate: { lte: now } },
@@ -419,13 +423,19 @@ async function fetchAnalyticsCore(societyIds: string[], options: AnalyticsCoreOp
   // 12. Charges récupérables (12 derniers mois)
   const recoverableCharges = recoverableChargesAgg._sum.amount ?? 0;
 
-  // 13. Dette (emprunts en cours)
+  // 13. Dette (emprunts en cours) — logique alignée sur /emprunts/page.tsx :
+  // - COMPTE_COURANT → currentBalance (solde du compte, pas le nominal)
+  // - Autres → remainingBalance de la dernière échéance passée, fallback
+  //   sur amount nominal si aucune échéance encore passée
   let totalDebt = 0;
   let monthlyLoanPayment = 0;
   let initialLoanCapital = 0;
   for (const loan of activeLoansForDebt) {
     initialLoanCapital += Number(loan.amount);
-    if (loan.amortizationLines.length > 0) {
+    if (loan.loanType === "COMPTE_COURANT") {
+      totalDebt += Number(loan.currentBalance ?? 0);
+      // Pas d'échéance mensuelle fixe pour un CC — on ne compte pas dans monthlyLoanPayment.
+    } else if (loan.amortizationLines.length > 0) {
       totalDebt += loan.amortizationLines[0].remainingBalance;
       monthlyLoanPayment += loan.amortizationLines[0].totalPayment;
     } else {
