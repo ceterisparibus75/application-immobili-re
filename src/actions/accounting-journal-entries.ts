@@ -249,9 +249,26 @@ export async function linkJournalEntryDocument(
 
     const entry = await prisma.journalEntry.findFirst({
       where: { id: entryId, societyId },
-      select: { id: true, documentId: true },
+      select: {
+        id: true,
+        documentId: true,
+        status: true,
+        fiscalYear: { select: { isClosed: true } },
+      },
     });
     if (!entry) return { success: false, error: "Écriture introuvable" };
+    if (entry.status === "VALIDEE" || entry.status === "CLOTUREE") {
+      return {
+        success: false,
+        error: "Impossible de modifier une écriture validée ou clôturée",
+      };
+    }
+    if (entry.fiscalYear?.isClosed) {
+      return {
+        success: false,
+        error: "Impossible de modifier une écriture d'un exercice clos",
+      };
+    }
 
     const documentResolution = await resolveJournalEntryDocument(societyId, documentId);
     if (documentResolution.error) return { success: false, error: documentResolution.error };
@@ -332,17 +349,32 @@ export async function validateJournalEntry(
 
     const entry = await prisma.journalEntry.findFirst({
       where: { id: entryId, societyId },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        fiscalYear: { select: { isClosed: true } },
+      },
     });
     if (!entry) return { success: false, error: "Écriture introuvable" };
     if (entry.status !== "BROUILLON") {
       const label = entry.status === "VALIDEE" ? "validée" : "clôturée";
       return { success: false, error: `Cette écriture est déjà ${label} et ne peut plus être modifiée` };
     }
+    if (entry.fiscalYear?.isClosed) {
+      return {
+        success: false,
+        error: "Impossible de valider une écriture d'un exercice clos",
+      };
+    }
 
     await prisma.journalEntry.update({
       where: { id: entryId },
-      data: { status: "VALIDEE", isValidated: true, validatedById: context.userId },
+      data: {
+        status: "VALIDEE",
+        isValidated: true,
+        validatedById: context.userId,
+        validatedAt: new Date(),
+      },
     });
 
     await createAuditLog({
@@ -381,6 +413,7 @@ export async function validateJournalEntries(
         id: true,
         status: true,
         lines: { select: { debit: true, credit: true } },
+        fiscalYear: { select: { isClosed: true } },
       },
     });
 
@@ -391,6 +424,14 @@ export async function validateJournalEntries(
     const notDraft = entries.find((entry) => entry.status !== "BROUILLON");
     if (notDraft) {
       return { success: false, error: "Toutes les écritures doivent être en brouillon pour être validées" };
+    }
+
+    const closed = entries.find((entry) => entry.fiscalYear?.isClosed);
+    if (closed) {
+      return {
+        success: false,
+        error: "Impossible de valider une écriture d'un exercice clos",
+      };
     }
 
     const invalidLine = entries.find((entry) => validateDebitCreditLines(entry.lines));
@@ -409,7 +450,12 @@ export async function validateJournalEntries(
 
     const result = await prisma.journalEntry.updateMany({
       where: { societyId, id: { in: uniqueEntryIds }, status: "BROUILLON" },
-      data: { status: "VALIDEE", isValidated: true, validatedById: context.userId },
+      data: {
+        status: "VALIDEE",
+        isValidated: true,
+        validatedById: context.userId,
+        validatedAt: new Date(),
+      },
     });
 
     await createAuditLog({

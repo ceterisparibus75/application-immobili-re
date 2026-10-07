@@ -38,45 +38,45 @@ describe("getNextLetteringCode", () => {
     expect(result.success).toBe(false);
   });
 
-  it("retourne AA si aucun lettrage existant", async () => {
+  it("retourne AA si aucun lettrage existant (compteur initial = 2 apres UPDATE)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockResolvedValue([]);
+    // UPDATE "Society" SET nextLetteringSequence = nextLetteringSequence + 1 RETURNING ...
+    // La valeur retournee est la nouvelle valeur apres increment. Seq consommee = retour - 1.
+    prismaMock.$queryRaw.mockResolvedValue([{ nextLetteringSequence: 2 }] as never);
 
     const result = await getNextLetteringCode(SOCIETY_ID);
     expect(result.success).toBe(true);
     expect(result.data?.code).toBe("AA");
   });
 
-  it("incrémente le code AA → AB", async () => {
+  it("incrémente le code AA → AB (sequence 2 -> AB)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockResolvedValue([{ letteringCode: "AA", lettrage: null }] as never);
+    prismaMock.$queryRaw.mockResolvedValue([{ nextLetteringSequence: 3 }] as never);
 
     const result = await getNextLetteringCode(SOCIETY_ID);
     expect(result.data?.code).toBe("AB");
   });
 
-  it("incrémente AZ → BA", async () => {
+  it("incrémente AZ → BA (sequence 27 -> BA)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockResolvedValue([{ letteringCode: "AZ", lettrage: null }] as never);
+    prismaMock.$queryRaw.mockResolvedValue([{ nextLetteringSequence: 28 }] as never);
 
     const result = await getNextLetteringCode(SOCIETY_ID);
     expect(result.data?.code).toBe("BA");
   });
 
-  it("incrémente ZZ → AZZ (ajoute un caractère)", async () => {
+  it("incrémente ZZ → AAA (sequence 677 -> AAA)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockResolvedValue([{ letteringCode: "ZZ", lettrage: null }] as never);
+    prismaMock.$queryRaw.mockResolvedValue([{ nextLetteringSequence: 678 }] as never);
 
     const result = await getNextLetteringCode(SOCIETY_ID);
     expect(result.data?.code).toBe("AAA");
   });
 
-  it("tient compte des anciens codes lettrage pour générer le prochain code", async () => {
+  it("tient compte des anciens codes lettrage via la sequence stockee (compteur deja a 4 → sequence consommee = 4 → AD)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockResolvedValue([
-      { letteringCode: null, lettrage: "AB" },
-      { letteringCode: "AC", lettrage: null },
-    ] as never);
+    // Societe deja a 4 (apres backfill ou allocations precedentes). UPDATE +1 → 5. Seq consommee = 4 → "AD".
+    prismaMock.$queryRaw.mockResolvedValue([{ nextLetteringSequence: 5 }] as never);
 
     const result = await getNextLetteringCode(SOCIETY_ID);
 
@@ -90,11 +90,18 @@ describe("getNextLetteringCode", () => {
     expect(result.error).toBeTruthy();
   });
 
-  it("retourne une erreur générique si la BDD échoue dans getNextLetteringCode (lignes 51-52)", async () => {
+  it("retourne une erreur générique si la BDD échoue dans getNextLetteringCode", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockRejectedValue(new Error("DB error"));
+    prismaMock.$queryRaw.mockRejectedValue(new Error("DB error"));
     const result = await getNextLetteringCode(SOCIETY_ID);
     expect(result).toEqual({ success: false, error: "Erreur lors de la generation du code de lettrage" });
+  });
+
+  it("retourne une erreur si la societe est introuvable (UPDATE RETURNING vide)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.$queryRaw.mockResolvedValue([] as never);
+    const result = await getNextLetteringCode(SOCIETY_ID);
+    expect(result).toEqual({ success: false, error: "Societe introuvable pour le lettrage" });
   });
 });
 
@@ -173,12 +180,12 @@ describe("letterEntries", () => {
 
   it("lette les lignes équilibrées avec succès", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany
-      .mockResolvedValueOnce([
-        makeLine({ debit: 500, credit: 0 }),
-        makeLine({ id: LINE_ID_2, debit: 0, credit: 500 }),
-      ] as never)
-      .mockResolvedValueOnce([] as never); // getNextLetteringCode -> AA
+    prismaMock.journalEntryLine.findMany.mockResolvedValueOnce([
+      makeLine({ debit: 500, credit: 0 }),
+      makeLine({ id: LINE_ID_2, debit: 0, credit: 500 }),
+    ] as never);
+    // getNextLetteringCode -> UPDATE RETURNING nextLetteringSequence = 2 -> "AA"
+    prismaMock.$queryRaw.mockResolvedValue([{ nextLetteringSequence: 2 }] as never);
     prismaMock.journalEntryLine.updateMany.mockResolvedValue({ count: 2 } as never);
 
     const result = await letterEntries(SOCIETY_ID, [LINE_ID_1, LINE_ID_2]);

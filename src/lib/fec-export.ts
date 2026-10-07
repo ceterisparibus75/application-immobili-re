@@ -39,7 +39,8 @@ function fmtDate(d: Date): string {
 }
 
 function fmtAmount(n: number): string {
-  return n.toFixed(2);
+  // Arrete du 29/07/2013 : separateur decimal obligatoire = virgule
+  return n.toFixed(2).replace(".", ",");
 }
 
 function sanitize(s: string): string {
@@ -85,7 +86,13 @@ export async function generateFec(
     where: { id: societyId },
     select: { siret: true },
   });
-  const siren = society?.siret?.replace(/\s/g, "").slice(0, 9) ?? "000000000";
+  const rawSiret = society?.siret?.replace(/\s/g, "") ?? "";
+  if (!rawSiret) {
+    throw new Error(
+      "Export FEC impossible : la société n'a pas de SIRET renseigné"
+    );
+  }
+  const siren = rawSiret.slice(0, 9);
 
   // Recuperer l exercice fiscal si fiscalYearId est fourni
   let fiscalYear: { year: number; startDate: Date; endDate: Date } | null = null;

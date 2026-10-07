@@ -316,7 +316,11 @@ export async function unreconcile(
       include: {
         transaction: {
           include: {
-            journalEntry: true,
+            journalEntry: {
+              include: {
+                fiscalYear: { select: { isClosed: true } },
+              },
+            },
             reconciliations: { select: { id: true } },
           },
         },
@@ -324,11 +328,18 @@ export async function unreconcile(
     });
     if (!reconciliation) return { success: false, error: "Rapprochement introuvable" };
 
-    if (
-      reconciliation.transaction.journalEntry &&
-      (reconciliation.transaction.journalEntry.isValidated || reconciliation.transaction.journalEntry.status !== "BROUILLON")
-    ) {
-      return { success: false, error: "Impossible d'annuler un rapprochement dont l'écriture comptable est validée" };
+    const linkedJournalEntry = reconciliation.transaction.journalEntry;
+    if (linkedJournalEntry) {
+      if (
+        linkedJournalEntry.isValidated ||
+        linkedJournalEntry.status === "VALIDEE" ||
+        linkedJournalEntry.status === "CLOTUREE"
+      ) {
+        return { success: false, error: "Impossible d'annuler un rapprochement dont l'écriture comptable est validée ou clôturée" };
+      }
+      if (linkedJournalEntry.fiscalYear?.isClosed) {
+        return { success: false, error: "Impossible d'annuler un rapprochement dont l'écriture appartient à un exercice clos" };
+      }
     }
 
     // S'il reste d'autres réconciliations sur la transaction (cas ventilé),

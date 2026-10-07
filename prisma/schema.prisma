@@ -567,6 +567,9 @@ model Society {
   creditNoteNumberYear Int     @default(0) // Année du compteur avoir
   nextReceiptNumber    Int     @default(0) // Compteur séparé pour les quittances de loyer (préfixe QIT)
   receiptNumberYear    Int     @default(0) // Année du compteur quittance
+  // Compteur atomique de lettrage (séquence AA, AB, ..., AZ, BA, ..., ZZ, AAA, ...).
+  // Incrémenté via UPDATE ... RETURNING pour éviter les doublons en cas de concurrence.
+  nextLetteringSequence Int    @default(1)
 
   // Configuration
   isActive Boolean @default(true)
@@ -2497,6 +2500,7 @@ model AccountingAccount {
 model JournalEntry {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   societyId String
 
   journalType   JournalType
@@ -2508,6 +2512,9 @@ model JournalEntry {
   status        EntryStatus @default(BROUILLON)
   fiscalYearId  String?
   validatedById String?
+  // Horodatage de la validation effective (passage BROUILLON → VALIDEE).
+  // Null tant que l'écriture est en brouillon.
+  validatedAt   DateTime?
   documentId    String? // Pièce justificative GED liée à l'écriture
 
   society                     Society                      @relation(fields: [societyId], references: [id], onDelete: Cascade)

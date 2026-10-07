@@ -34,7 +34,13 @@ export async function GET(req: NextRequest) {
   options.journalType = parseJournalType(journalStr);
   if (p.get("validatedOnly") === "true") options.validatedOnly = true;
 
-  const result = await generateFec(context.societyId, options);
+  let result: Awaited<ReturnType<typeof generateFec>>;
+  try {
+    result = await generateFec(context.societyId, options);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erreur lors de la génération FEC";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
   const hasErrors = result.anomalies.some((anomaly) => anomaly.severity === "error");
   if (hasErrors) {
     return NextResponse.json(
@@ -76,12 +82,18 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { year, journalType, validatedOnly, fiscalYearId } = body as Record<string, unknown>;
 
-  const result = await generateFec(context.societyId, {
-    fiscalYearId: typeof fiscalYearId === "string" ? fiscalYearId : undefined,
-    year: typeof year === "string" ? parseInt(year, 10) : undefined,
-    journalType: parseJournalType(journalType),
-    validatedOnly: validatedOnly === true,
-  });
+  let result: Awaited<ReturnType<typeof generateFec>>;
+  try {
+    result = await generateFec(context.societyId, {
+      fiscalYearId: typeof fiscalYearId === "string" ? fiscalYearId : undefined,
+      year: typeof year === "string" ? parseInt(year, 10) : undefined,
+      journalType: parseJournalType(journalType),
+      validatedOnly: validatedOnly === true,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Erreur lors de la génération FEC";
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 
   return NextResponse.json({
     lineCount: result.lineCount,

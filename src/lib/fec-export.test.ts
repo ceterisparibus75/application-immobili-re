@@ -124,13 +124,19 @@ describe("generateFec", () => {
     expect(result.anomalies).toHaveLength(0);
   });
 
-  it("utilise SIREN par défaut 000000000 si société sans SIRET", async () => {
+  it("leve une erreur explicite si la societe n'a pas de SIRET renseigne", async () => {
+    // L'arrete du 29/07/2013 rend le SIREN obligatoire dans le nom du fichier
+    // FEC. Un fallback "000000000" conduirait a un depot sous un SIREN
+    // inexistant (bloquant pour l'administration fiscale) : on prefere
+    // bloquer explicitement l'export.
     prismaMock.society.findUnique.mockResolvedValue({ siret: null } as never);
     prismaMock.journalEntry.findMany.mockResolvedValue([] as never);
 
-    const result = await generateFec(SOCIETY_ID, { year: 2025 });
-
-    expect(result.filename).toContain("000000000");
+    await expect(generateFec(SOCIETY_ID, { year: 2025 })).rejects.toThrow(
+      /SIRET/i
+    );
+    // La requete d'ecritures ne doit pas etre executee quand on bloque en amont.
+    expect(prismaMock.journalEntry.findMany).not.toHaveBeenCalled();
   });
 
   it("le contenu utilise CRLF comme séparateur de lignes", async () => {

@@ -199,6 +199,19 @@ export async function generateAndSendQuittance(
       data: { status: "PAYE" },
     });
 
+    // Ecriture comptable de vente associee a la quittance (411 debit / 70x + 4457 credit).
+    // Non bloquant : la quittance reste valide en DB meme si la comptabilite
+    // automatique echoue (le gestionnaire pourra creer manuellement l'OD si besoin).
+    await createCustomerInvoiceJournalEntry(prisma, societyId, quittance.id).catch(
+      (err) => {
+        console.error(
+          "[generateAndSendQuittance] Ecriture comptable echouee pour la quittance",
+          quittance.id,
+          err
+        );
+      }
+    );
+
     generateQuittancePdfAndSend(societyId, quittance.id).catch((err) => {
       console.error("[generateAndSendQuittance] Envoi email/PDF échoué:", err);
     });
@@ -724,6 +737,21 @@ export async function cancelInvoice(
         });
       });
       creditNoteId = creditNote.id;
+
+      // Contre-passation comptable : createCustomerInvoiceJournalEntry
+      // detecte invoiceType === "AVOIR" (ou totalTTC < 0) et inverse les comptes
+      // 411 / 70x / 4457 par rapport a la facture originale. Non bloquant :
+      // si l'ecriture echoue on garde l'avoir en DB pour conserver la tracabilite
+      // (le gestionnaire pourra creer manuellement l'OD si besoin).
+      await createCustomerInvoiceJournalEntry(prisma, societyId, creditNote.id).catch(
+        (err) => {
+          console.error(
+            "[cancelInvoice] Contre-passation comptable echouee pour l'avoir",
+            creditNote.id,
+            err
+          );
+        }
+      );
     }
 
     await prisma.invoice.update({

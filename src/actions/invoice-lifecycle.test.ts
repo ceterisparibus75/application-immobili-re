@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const sendReceiptEmailMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const renderToBufferMock = vi.hoisted(() => vi.fn().mockResolvedValue(Buffer.from("pdf-buffer")));
@@ -507,6 +507,14 @@ describe("validateBatchInvoices", () => {
 // ── cancelInvoice ──────────────────────────────────────────────
 
 describe("cancelInvoice", () => {
+  // L'ecriture de contre-passation de l'avoir (point 5) utilise
+  // createCustomerInvoiceJournalEntry : on la fait early-return en
+  // simulant une ecriture existante, pour isoler les tests du flux
+  // d'annulation du flux comptable automatique (teste separement).
+  beforeEach(() => {
+    prismaMock.journalEntry.findFirst.mockResolvedValue({ id: "existing-je" } as never);
+  });
+
   it("retourne une erreur si non authentifié", async () => {
     mockUnauthenticated();
     const result = await cancelInvoice(SOCIETY_ID, INVOICE_ID);
@@ -713,6 +721,15 @@ describe("markAsIrrecoverable", () => {
 // ── generateAndSendQuittance ───────────────────────────────────
 
 describe("generateAndSendQuittance", () => {
+  // L'ecriture comptable automatique de la quittance (point 6) utilise
+  // createCustomerInvoiceJournalEntry, qui commence par chercher une
+  // ecriture existante par reference. On la fait renvoyer un id non-null
+  // pour qu'elle early-return sans consommer les mocks invoice.findFirst
+  // dedies au flux PDF arriere-plan.
+  beforeEach(() => {
+    prismaMock.journalEntry.findFirst.mockResolvedValue({ id: "existing-je" } as never);
+  });
+
   it("retourne une erreur si la facture source est introuvable", async () => {
     prismaMock.invoice.findFirst.mockResolvedValue(null);
 
