@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { requireSocietyAccess } from "@/lib/permissions";
+import { getEffectivePermissions, hasMinRole, requireSocietyAccess } from "@/lib/permissions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import { ValidateDraftJournalEntriesButton } from "./_components/validate-draft-
 import { ValidateJournalEntryButton } from "./_components/validate-journal-entry-button";
 import { DeleteJournalEntryButton } from "./_components/delete-journal-entry-button";
 import { LinkJournalEntryDocumentSelect } from "./_components/link-journal-entry-document-select";
+import { BackfillAdminTools } from "./_components/backfill-button";
 import { ACCOUNTING_JOURNAL_LABELS, isAccountingJournalType } from "@/lib/accounting-journals";
 import { getBankTransactionSourceLink } from "@/lib/accounting-bank-source";
 
@@ -85,6 +86,10 @@ export default async function ComptabilitePage() {
   const brouillonCount = stats.find(s => s.status === "BROUILLON")?._count.id ?? 0;
   const valideeCount = stats.find(s => s.status === "VALIDEE")?._count.id ?? 0;
   const totalEntries = stats.reduce((s, r) => s + r._count.id, 0);
+
+  // ADMIN_SOCIETE+ : accès aux outils de rattrapage comptable
+  const effectivePerms = await getEffectivePermissions(session.user.id, societyId);
+  const isAdmin = effectivePerms ? hasMinRole(effectivePerms.role, "ADMIN_SOCIETE") : false;
 
   const quickActions = [
     { href: "/comptabilite/nouvelle-ecriture", icon: PenLine, label: "Saisir une écriture", color: "text-blue-600" },
@@ -341,6 +346,9 @@ export default async function ComptabilitePage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Outils admin — réservés aux ADMIN_SOCIETE+ */}
+      {isAdmin && <BackfillAdminTools societyId={societyId} />}
     </div>
   );
 }

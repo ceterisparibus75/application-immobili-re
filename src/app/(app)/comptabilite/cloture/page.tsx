@@ -160,6 +160,8 @@ export default function CloturePage() {
                 <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                   {check.status === "PASS" ? (
                     <CheckCircle2 className="h-4 w-4 text-[var(--color-status-success)]" />
+                  ) : check.status === "WARNING" ? (
+                    <AlertTriangle className="h-4 w-4 text-[var(--color-status-caution)]" />
                   ) : (
                     <AlertTriangle className="h-4 w-4 text-destructive" />
                   )}

@@ -61,9 +61,9 @@ export type GrandLivreRow = {
 };
 
 export type FiscalYearCloseCheck = {
-  key: "drafts" | "balance" | "reviews";
+  key: "drafts" | "balance" | "reviews" | "lettering" | "depreciation";
   label: string;
-  status: "PASS" | "BLOCKING";
+  status: "PASS" | "BLOCKING" | "WARNING";
   detail: string;
 };
 
@@ -78,6 +78,8 @@ export type FiscalYearCloseChecklist = {
   movedAccountCount: number;
   reviewedAccountCount: number;
   issueCount: number;
+  unletteredTiersCount: number;
+  unpostedDepreciations: number;
   checks: FiscalYearCloseCheck[];
 };
 
@@ -137,7 +139,7 @@ export async function buildFiscalYearCloseChecklist(
 ): Promise<FiscalYearCloseChecklist | null> {
   const fy = await prisma.fiscalYear.findFirst({
     where: { id: fiscalYearId, societyId },
-    select: { id: true, year: true, isClosed: true },
+    select: { id: true, year: true, isClosed: true, startDate: true, endDate: true },
   });
   if (!fy) return null;
 
@@ -176,6 +178,32 @@ export async function buildFiscalYearCloseChecklist(
   }
 
   const unreviewedCount = Math.max(accountIds.length - reviewedCount, 0);
+
+  // Lettrage des comptes tiers (classe 4) — lignes mouvementées non lettrées
+  const unletteredTiersCount = await prisma.journalEntryLine.count({
+    where: {
+      account: { societyId, code: { startsWith: "4" } },
+      journalEntry: { societyId, fiscalYearId },
+      AND: [
+        { letteringCode: null },
+        { lettrage: null },
+      ],
+      OR: [
+        { debit: { gt: 0 } },
+        { credit: { gt: 0 } },
+      ],
+    },
+  }) ?? 0;
+
+  // Amortissements planifiés sur l'exercice (modèle FixedAssetDepreciationLine)
+  const unpostedDepreciations = await prisma.fixedAssetDepreciationLine.count({
+    where: {
+      status: "PLANNED",
+      fixedAsset: { societyId },
+      periodStart: { gte: fy.startDate, lte: fy.endDate },
+    },
+  }) ?? 0;
+
   const checks: FiscalYearCloseCheck[] = [
     {
       key: "drafts",
@@ -205,19 +233,39 @@ export async function buildFiscalYearCloseChecklist(
             ? "Aucun compte mouvementé"
             : "Tous les comptes mouvementés sont revus",
     },
+    {
+      key: "lettering",
+      label: "Lettrage des comptes tiers",
+      status: unletteredTiersCount === 0 ? "PASS" : "BLOCKING",
+      detail: unletteredTiersCount === 0
+        ? "Toutes les lignes mouvementées des comptes de classe 4 sont lettrées"
+        : `${unletteredTiersCount} ligne(s) de comptes tiers (classe 4) non lettrée(s) sur l'exercice`,
+    },
+    {
+      key: "depreciation",
+      label: "Amortissements postés",
+      status: unpostedDepreciations === 0 ? "PASS" : "WARNING",
+      detail: unpostedDepreciations === 0
+        ? "Toutes les dotations d'amortissement de l'exercice sont postées"
+        : `${unpostedDepreciations} amortissement(s) à poster via Immobilisations`,
+    },
   ];
+
+  const blockingChecks = checks.filter((check) => check.status === "BLOCKING");
 
   return {
     fiscalYearId: fy.id,
     year: fy.year,
     isClosed: fy.isClosed,
-    canClose: !fy.isClosed && checks.every((check) => check.status === "PASS"),
+    canClose: !fy.isClosed && blockingChecks.length === 0,
     totalDebit,
     totalCredit,
     draftCount: drafts,
     movedAccountCount: accountIds.length,
     reviewedAccountCount: reviewedCount,
     issueCount,
+    unletteredTiersCount,
+    unpostedDepreciations,
     checks,
   };
 }
