@@ -25,9 +25,11 @@ interface Props {
 }
 
 /**
- * Correction manuelle du numéro de facture — réservé ADMIN_SOCIETE+.
- * Cas d'usage : doublon historique (race condition compteur),
- * alignement sur une convention externe, correction post-import.
+ * Correction manuelle du numéro d'un AVOIR — réservé ADMIN_SOCIETE+.
+ *
+ * Les factures (hors AVOIR) sont soumises à l'inaltérabilité des numéros
+ * (CGI art. 289 et 242 nonies A). Le composant n'est rendu que pour les
+ * avoirs ; le serveur refuse également toute tentative sur une facture.
  */
 export function RenumberInvoiceButton({ invoiceId, societyId, currentNumber }: Props) {
   const router = useRouter();
@@ -54,7 +56,7 @@ export function RenumberInvoiceButton({ invoiceId, societyId, currentNumber }: P
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" title="Corriger le numéro (admin)">
+        <Button variant="outline" size="sm" title="Corriger le numéro d'avoir (admin)">
           <Hash className="h-4 w-4" />
           Renuméroter
         </Button>
@@ -62,11 +64,12 @@ export function RenumberInvoiceButton({ invoiceId, societyId, currentNumber }: P
       <DialogContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>Renuméroter la pièce</DialogTitle>
+            <DialogTitle>Renuméroter l&apos;avoir</DialogTitle>
             <DialogDescription>
-              Action réservée aux administrateurs. À utiliser en cas de doublon de numéro
-              historique ou d&apos;alignement sur une convention externe. L&apos;ancien numéro est
-              conservé dans le journal d&apos;audit.
+              Action réservée aux administrateurs, uniquement disponible sur les avoirs
+              (les numéros de facture étant inaltérables, CGI art. 289). À utiliser pour
+              corriger un doublon issu d&apos;un bug historique de compteur. L&apos;ancien numéro
+              est conservé dans le journal d&apos;audit.
             </DialogDescription>
           </DialogHeader>
 

@@ -275,7 +275,7 @@ export default async function FactureDetailPage({
               </Button>
             </Link>
           )}
-          {invoice.status !== "BROUILLON" && (
+          {invoice.invoiceType === "AVOIR" && invoice.status !== "BROUILLON" && (
             <RenumberInvoiceButton
               invoiceId={invoice.id}
               societyId={societyId}

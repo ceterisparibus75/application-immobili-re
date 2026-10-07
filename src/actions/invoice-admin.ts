@@ -11,12 +11,20 @@ import {
 import type { ActionResult } from "@/actions/society";
 
 /**
- * Renumérote manuellement une facture — réservé aux ADMIN_SOCIETE+ pour
- * corriger un doublon de numérotation (ex. race condition historique sur
- * les compteurs) ou aligner un numéro après une correction comptable.
+ * Renumérote manuellement un AVOIR — réservé aux ADMIN_SOCIETE+ pour
+ * corriger un doublon ou un numéro cassé par un bug historique de
+ * compteur.
+ *
+ * ⚠️ RESTRICTION FISCALE : les factures (toutes sauf les AVOIRS) sont
+ * soumises à l'inaltérabilité des numéros (CGI art. 289 et 242 nonies A).
+ * On refuse toute renumérotation sur une pièce qui n'est pas un AVOIR,
+ * même par un admin. Les factures doivent conserver leur numéro
+ * d'origine ; en cas de doublon réel, émettre un avoir pour annuler
+ * l'une des deux factures et réémettre proprement.
  *
  * Validations :
- *  - Format : {PREFIX}-{ANNÉE}-{SÉQUENCE} (ex: MTGFINVAV-2026-0002)
+ *  - invoiceType === "AVOIR" (strict)
+ *  - Format : lettres/chiffres/tirets/underscores, 1-60 caractères
  *  - Unicité société + invoiceNumber (contrainte @@unique côté schéma)
  *  - Pas de changement si l'invoice est en BROUILLON (invoiceNumber=null)
  */
@@ -32,9 +40,6 @@ export async function renumberInvoice(
     if (!trimmed) {
       return { success: false, error: "Le numéro ne peut pas être vide" };
     }
-    // Format tolérant : lettres/chiffres/tirets/underscores — on ne force
-    // pas le pattern préfixe-année-séquence pour laisser à l'admin la
-    // possibilité d'adopter une convention historique.
     if (!/^[A-Za-z0-9_-]+$/.test(trimmed)) {
       return {
         success: false,
@@ -50,6 +55,13 @@ export async function renumberInvoice(
       select: { id: true, invoiceNumber: true, status: true, tenantId: true, invoiceType: true },
     });
     if (!invoice) return { success: false, error: "Facture introuvable" };
+    if (invoice.invoiceType !== "AVOIR") {
+      return {
+        success: false,
+        error:
+          "Interdit : les numéros de facture sont inaltérables (CGI art. 289). Seuls les avoirs peuvent être renumérotés. Pour corriger une facture, émettez un avoir pour l'annuler et réémettez-la proprement.",
+      };
+    }
     if (invoice.status === "BROUILLON") {
       return {
         success: false,
