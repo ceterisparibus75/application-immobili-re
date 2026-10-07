@@ -104,6 +104,13 @@ export function BackfillAdminTools({ societyId }: { societyId: string }) {
               )}
               Rattrapage données — Quittances
             </Button>
+
+            <a href="/comptabilite/orphelines">
+              <Button variant="outline" size="sm" type="button">
+                <Wrench className="h-3 w-3" />
+                Résoudre les écritures orphelines
+              </Button>
+            </a>
           </div>
 
           {lastResult && (
