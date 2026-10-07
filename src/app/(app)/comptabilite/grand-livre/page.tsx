@@ -39,6 +39,9 @@ function getJournalLabel(journalType: string): string {
   return isAccountingJournalType(journalType) ? ACCOUNTING_JOURNAL_LABELS[journalType] : journalType;
 }
 
+const PAGE_SIZE = 100;
+const EXPORT_PAGE_SIZE = 10000;
+
 export default function GrandLivrePage() {
   const { activeSociety } = useSociety();
   const [isPending, startTransition] = useTransition();
@@ -46,6 +49,11 @@ export default function GrandLivrePage() {
   const [fiscalYears, setFiscalYears] = useState<FiscalYearRow[]>([]);
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  // Pagination serveur
+  const [page, setPage] = useState<number>(1);
+  const [total, setTotal] = useState<number>(0);
 
   // Filters
   const [fiscalYearId, setFiscalYearId] = useState<string>("all");
@@ -63,7 +71,7 @@ export default function GrandLivrePage() {
     getAccounts(id).then(r => { if (r.success && r.data) setAccounts(r.data); });
   }, [activeSociety?.id]);
 
-  function load() {
+  function load(nextPage: number = page) {
     if (!activeSociety?.id) return;
     startTransition(async () => {
       const res = await getGrandLivre(activeSociety.id, {
@@ -74,14 +82,46 @@ export default function GrandLivrePage() {
         dateTo: dateTo || undefined,
         letteringStatus,
         letteringCode: letteringCode || undefined,
+        page: nextPage,
+        pageSize: PAGE_SIZE,
       });
-      if (res.success && res.data) setRows(res.data);
-      else toast.error(res.error ?? "Erreur");
+      if (res.success && res.data) {
+        setRows(res.data.data);
+        setTotal(res.data.total);
+        setPage(res.data.page);
+      } else {
+        toast.error(res.error ?? "Erreur");
+      }
     });
   }
 
-  function getExportRows(): GrandLivreExportRow[] {
-    return rows.map((row) => ({
+  function handleFilterApply() {
+    setPage(1);
+    load(1);
+  }
+
+  async function fetchAllRows(): Promise<GrandLivreRow[] | null> {
+    if (!activeSociety?.id) return null;
+    const res = await getGrandLivre(activeSociety.id, {
+      accountId: accountId === "all" ? undefined : accountId,
+      fiscalYearId: fiscalYearId === "all" ? undefined : fiscalYearId,
+      journalType: journalType === "all" ? undefined : journalType,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      letteringStatus,
+      letteringCode: letteringCode || undefined,
+      page: 1,
+      pageSize: EXPORT_PAGE_SIZE,
+    });
+    if (!res.success || !res.data) {
+      toast.error(res.error ?? "Erreur lors de la récupération complète");
+      return null;
+    }
+    return res.data.data;
+  }
+
+  function toExportRows(source: GrandLivreRow[]): GrandLivreExportRow[] {
+    return source.map((row) => ({
       id: row.id,
       accountCode: row.accountCode,
       accountLabel: row.accountLabel,
@@ -108,25 +148,36 @@ export default function GrandLivrePage() {
     return "Toutes périodes";
   }
 
-  function downloadTextExport(extension: "csv" | "txt", separator: "," | ";" | "\t") {
+  async function downloadTextExport(extension: "csv" | "txt", separator: "," | ";" | "\t") {
     if (rows.length === 0) {
       toast.error("Aucune ligne à exporter");
       return;
     }
-    const exportRows = getExportRows();
-    const content = extension === "txt"
-      ? grandLivreRowsToAccountingText(exportRows)
-      : grandLivreRowsToDelimited(exportRows, separator);
-    const mime = extension === "csv" ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8";
-    const blob = new Blob([content], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = grandLivreExportFilename(extension);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    setIsExporting(true);
+    try {
+      // L'export télécharge TOUTES les lignes, pas seulement la page affichée.
+      const allRows = await fetchAllRows();
+      if (!allRows || allRows.length === 0) {
+        toast.error("Aucune ligne à exporter");
+        return;
+      }
+      const exportRows = toExportRows(allRows);
+      const content = extension === "txt"
+        ? grandLivreRowsToAccountingText(exportRows)
+        : grandLivreRowsToDelimited(exportRows, separator);
+      const mime = extension === "csv" ? "text/csv;charset=utf-8" : "text/plain;charset=utf-8";
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = grandLivreExportFilename(extension);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   async function exportPdf() {
@@ -136,10 +187,16 @@ export default function GrandLivrePage() {
     }
     setIsExportingPdf(true);
     try {
+      // Idem : le PDF reflète l'ensemble du Grand Livre filtré, pas la page.
+      const allRows = await fetchAllRows();
+      if (!allRows || allRows.length === 0) {
+        toast.error("Aucune ligne à exporter");
+        return;
+      }
       const payload: GrandLivreExportPayload = {
         societyName: activeSociety?.name ?? "MyGestia",
         periodLabel: getPeriodLabel(),
-        rows: getExportRows(),
+        rows: toExportRows(allRows),
       };
       const response = await fetch("/api/comptabilite/grand-livre/pdf", {
         method: "POST",
@@ -188,20 +245,20 @@ export default function GrandLivrePage() {
           <Button
             variant="outline"
             size="sm"
-            disabled={rows.length === 0}
+            disabled={rows.length === 0 || isExporting}
             onClick={() => downloadTextExport("csv", ";")}
           >
             <Download className="h-4 w-4" />
-            CSV
+            {isExporting ? "..." : "CSV"}
           </Button>
           <Button
             variant="outline"
             size="sm"
-            disabled={rows.length === 0}
+            disabled={rows.length === 0 || isExporting}
             onClick={() => downloadTextExport("txt", "\t")}
           >
             <FileText className="h-4 w-4" />
-            TXT
+            {isExporting ? "..." : "TXT"}
           </Button>
           <Button
             variant="outline"
@@ -253,7 +310,7 @@ export default function GrandLivrePage() {
               placeholder="Code de lettrage, ex. AB"
               className="max-w-xs font-mono"
             />
-            <Button onClick={load} disabled={isPending}>{isPending ? "Chargement..." : "Afficher"}</Button>
+            <Button onClick={handleFilterApply} disabled={isPending}>{isPending ? "Chargement..." : "Afficher"}</Button>
           </div>
         </CardContent>
       </Card>
@@ -265,7 +322,7 @@ export default function GrandLivrePage() {
             <CardContent className="pt-4 flex items-center gap-3">
               <TrendingUp className="h-8 w-8 text-[var(--color-status-positive)]" />
               <div>
-                <div className="text-xs text-muted-foreground">Total Débit</div>
+                <div className="text-xs text-muted-foreground">Total Débit (page)</div>
                 <div className="text-xl font-bold text-[var(--color-status-positive)]">{formatCurrency(totalDebit)}</div>
               </div>
             </CardContent>
@@ -274,7 +331,7 @@ export default function GrandLivrePage() {
             <CardContent className="pt-4 flex items-center gap-3">
               <TrendingDown className="h-8 w-8 text-[var(--color-status-negative)]" />
               <div>
-                <div className="text-xs text-muted-foreground">Total Crédit</div>
+                <div className="text-xs text-muted-foreground">Total Crédit (page)</div>
                 <div className="text-xl font-bold text-[var(--color-status-negative)]">{formatCurrency(totalCredit)}</div>
               </div>
             </CardContent>
@@ -282,12 +339,53 @@ export default function GrandLivrePage() {
         </div>
       )}
 
+      {/* Pagination serveur */}
+      {total > 0 && (() => {
+        const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        const first = (page - 1) * PAGE_SIZE + 1;
+        const last = Math.min(page * PAGE_SIZE, total);
+        return (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm text-muted-foreground">
+              Lignes {first.toLocaleString("fr-FR")}–{last.toLocaleString("fr-FR")} sur{" "}
+              {total.toLocaleString("fr-FR")} (page {page} / {pageCount})
+              {pageCount > 1 && (
+                <span className="ml-2 text-xs">
+                  — Le solde est cumulé sur la page. Pour un solde absolu, exportez le PDF ou le CSV.
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isPending || page <= 1}
+                onClick={() => load(page - 1)}
+              >
+                Précédent
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isPending || page >= pageCount}
+                onClick={() => load(page + 1)}
+              >
+                Suivant
+              </Button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Table par compte */}
       {Object.entries(byAccount).map(([code, lines]) => {
         const accLabel = lines[0]?.accountLabel ?? "";
         const lastSolde = lines[lines.length - 1]?.solde ?? 0;
         const accountIdForLettering = lines[0]?.accountId;
-        const canOpenLettering = code.startsWith("4") && Boolean(accountIdForLettering);
+        // Exclure les comptes de résultat (classes 6 et 7) qui ne se lettrent pas.
+        // Garder les classes 1, 2, 3, 4, 5.
+        const canOpenLettering =
+          !code.startsWith("6") && !code.startsWith("7") && Boolean(accountIdForLettering);
         return (
           <Card key={code}>
             <CardHeader className="py-3">

@@ -55,7 +55,11 @@ export default function LetteringPage() {
     if (!activeSociety?.id || requestedAccountId === undefined) return;
     getAccounts(activeSociety.id).then((result) => {
       if (!result.success || !result.data) return;
-      const eligibleAccounts = result.data.filter((account) => account.code.startsWith("4"));
+      // Exclure les comptes de résultat (classes 6 et 7) qui ne se lettrent pas.
+      // Garder les classes 1, 2, 3, 4, 5.
+      const eligibleAccounts = result.data.filter(
+        (account) => !account.code.startsWith("6") && !account.code.startsWith("7")
+      );
       setAccounts(eligibleAccounts);
       const requestedAccount = eligibleAccounts.find((account) => account.id === requestedAccountId);
       if (requestedAccount) {

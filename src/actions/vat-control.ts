@@ -19,7 +19,12 @@ export type VatAccountRow = {
   debit: number;
   credit: number;
   balance: number;
-  kind: "COLLECTED" | "DEDUCTIBLE" | "OTHER";
+  kind:
+    | "COLLECTED" // 4457 – TVA collectée
+    | "DEDUCTIBLE" // 4456 – TVA déductible
+    | "TO_PAY" // 4455 / 44551 – TVA à décaisser
+    | "TO_CARRY_FORWARD" // 44567 – Crédit de TVA à reporter
+    | "OTHER";
 };
 
 export type VatControlResult = {
@@ -53,8 +58,12 @@ function roundCents(value: number): number {
 }
 
 function getVatKind(code: string): VatAccountRow["kind"] {
-  if (code.startsWith("4457")) return "COLLECTED";
-  if (code.startsWith("4456")) return "DEDUCTIBLE";
+  // Attention à l'ordre : 44567 commence par 4456, donc on teste le plus
+  // spécifique en premier (Plan Comptable Général français).
+  if (code.startsWith("44567")) return "TO_CARRY_FORWARD"; // Crédit de TVA à reporter
+  if (code.startsWith("4456")) return "DEDUCTIBLE"; // TVA déductible
+  if (code.startsWith("4457")) return "COLLECTED"; // TVA collectée
+  if (code.startsWith("4455")) return "TO_PAY"; // TVA à décaisser (dont 44551)
   return "OTHER";
 }
 
@@ -104,8 +113,9 @@ export async function getVatControl(
           account: {
             societyId,
             OR: [
-              { code: { startsWith: "4457" } },
-              { code: { startsWith: "4456" } },
+              { code: { startsWith: "4457" } }, // TVA collectée
+              { code: { startsWith: "4456" } }, // TVA déductible (dont 44567 crédit à reporter)
+              { code: { startsWith: "4455" } }, // TVA à décaisser (dont 44551)
             ],
           },
           journalEntry: {
@@ -288,6 +298,10 @@ export async function liquidateVatPeriod(
 
       const entryDate = filters.dateTo ? new Date(filters.dateTo) : new Date();
       const fiscalYearId = await resolveOpenFiscalYearIdForDate(tx, societyId, entryDate);
+      const now = new Date();
+      // L'écriture OD de liquidation TVA est auto-validée : les écarts
+      // comptable/business ont déjà été contrôlés (hasDiscrepancy) et
+      // l'équilibre débit=crédit est garanti par la construction des lignes.
       const created = await tx.journalEntry.create({
         data: {
           societyId,
@@ -297,7 +311,10 @@ export async function liquidateVatPeriod(
           piece: "TVA",
           label: `Liquidation TVA ${filters.dateFrom ?? ""} - ${filters.dateTo ?? ""}`.trim(),
           reference,
-          status: "BROUILLON",
+          status: "VALIDEE",
+          isValidated: true,
+          validatedAt: now,
+          validatedById: context.userId,
           lines: { create: lines },
         },
         select: { id: true },

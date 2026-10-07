@@ -33,6 +33,7 @@ export {
 } from "@/actions/accounting-accounts";
 
 export { getBalance, getGrandLivre } from "@/actions/accounting-reports";
+export type { GrandLivrePage } from "@/actions/accounting-reports";
 
 export {
   createJournalEntry,

@@ -3,7 +3,7 @@
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import type { ActionResult } from "@/actions/society";
-import type { JournalType, Prisma } from "@/generated/prisma/client";
+import { Prisma, type JournalType } from "@/generated/prisma/client";
 import {
   requireSocietyActionContext,
   UnauthenticatedActionError,
@@ -14,6 +14,17 @@ import {
 } from "@/lib/accounting-journals";
 import { roundCents, type BalanceRow, type GrandLivreRow } from "@/actions/accounting-shared";
 
+// Bornes de pagination pour le Grand Livre.
+const GRAND_LIVRE_DEFAULT_PAGE_SIZE = 100;
+const GRAND_LIVRE_MAX_PAGE_SIZE = 1000;
+
+export type GrandLivrePage = {
+  data: GrandLivreRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
 // ─── Balance ──────────────────────────────────────────────────────────────────
 
 export async function getBalance(
@@ -23,56 +34,63 @@ export async function getBalance(
   try {
     await requireSocietyActionContext(societyId);
 
-    const lines = await prisma.journalEntryLine.findMany({
-      where: {
-        account: {
-          societyId,
-          ...(filters.classe ? { type: filters.classe } : {}),
-        },
-        journalEntry: {
-          ...(filters.fiscalYearId ? { fiscalYearId: filters.fiscalYearId } : {}),
-          ...(filters.dateFrom ? { entryDate: { gte: new Date(filters.dateFrom) } } : {}),
-          ...(filters.dateTo
-            ? { entryDate: { ...(filters.dateFrom ? { gte: new Date(filters.dateFrom) } : {}), lte: new Date(filters.dateTo) } }
-            : {}),
-        },
-      },
-      select: {
-        debit: true,
-        credit: true,
-        account: { select: { id: true, code: true, label: true, type: true } },
-      },
-    });
+    // Agrégation SQL : GROUP BY accountId côté Postgres pour éviter de
+    // ramener toutes les lignes en mémoire (OOM sur gros exercices).
+    const classeClause = filters.classe
+      ? Prisma.sql`AND aa.type = ${filters.classe}`
+      : Prisma.empty;
+    const fyClause = filters.fiscalYearId
+      ? Prisma.sql`AND je."fiscalYearId" = ${filters.fiscalYearId}`
+      : Prisma.empty;
+    const dateFromClause = filters.dateFrom
+      ? Prisma.sql`AND je."entryDate" >= ${new Date(filters.dateFrom)}`
+      : Prisma.empty;
+    const dateToClause = filters.dateTo
+      ? Prisma.sql`AND je."entryDate" <= ${new Date(filters.dateTo)}`
+      : Prisma.empty;
 
-    // Agréger par compte
-    const map = new Map<string, BalanceRow>();
-    for (const line of lines) {
-      const key = line.account.id;
-      if (!map.has(key)) {
-        map.set(key, {
-          accountId: line.account.id,
-          code: line.account.code,
-          label: line.account.label,
-          classe: line.account.type,
-          totalDebit: 0,
-          totalCredit: 0,
-          soldeDebiteur: 0,
-          soldeCrediteur: 0,
-        });
-      }
-      const b = map.get(key)!;
-      b.totalDebit += line.debit;
-      b.totalCredit += line.credit;
-    }
+    const rows = await prisma.$queryRaw<Array<{
+      accountId: string;
+      code: string;
+      label: string;
+      classe: string;
+      totalDebit: number;
+      totalCredit: number;
+    }>>`
+      SELECT
+        aa.id AS "accountId",
+        aa.code AS "code",
+        aa.label AS "label",
+        aa.type AS "classe",
+        COALESCE(SUM(jel.debit), 0)::float8 AS "totalDebit",
+        COALESCE(SUM(jel.credit), 0)::float8 AS "totalCredit"
+      FROM "JournalEntryLine" jel
+      JOIN "AccountingAccount" aa ON jel."accountId" = aa.id
+      JOIN "JournalEntry" je ON jel."journalEntryId" = je.id
+      WHERE aa."societyId" = ${societyId}
+      ${classeClause}
+      ${fyClause}
+      ${dateFromClause}
+      ${dateToClause}
+      GROUP BY aa.id, aa.code, aa.label, aa.type
+      ORDER BY aa.code
+    `;
 
-    const data: BalanceRow[] = [...map.values()].map((b) => {
-      const diff = b.totalDebit - b.totalCredit;
+    const data: BalanceRow[] = rows.map((row) => {
+      const totalDebit = roundCents(Number(row.totalDebit));
+      const totalCredit = roundCents(Number(row.totalCredit));
+      const diff = totalDebit - totalCredit;
       return {
-        ...b,
-        soldeDebiteur: diff > 0 ? diff : 0,
-        soldeCrediteur: diff < 0 ? -diff : 0,
+        accountId: row.accountId,
+        code: row.code,
+        label: row.label,
+        classe: row.classe,
+        totalDebit,
+        totalCredit,
+        soldeDebiteur: diff > 0 ? roundCents(diff) : 0,
+        soldeCrediteur: diff < 0 ? roundCents(-diff) : 0,
       };
-    }).sort((a, b) => a.code.localeCompare(b.code));
+    });
 
     return { success: true, data };
   } catch (error) {
@@ -96,14 +114,24 @@ export async function getGrandLivre(
     nonLettered?: boolean;
     letteringStatus?: "all" | "lettered" | "unlettered";
     letteringCode?: string;
+    page?: number;
+    pageSize?: number;
   }
-): Promise<ActionResult<GrandLivreRow[]>> {
+): Promise<ActionResult<GrandLivrePage>> {
   try {
     await requireSocietyActionContext(societyId);
 
     if (filters.journalType && !isAccountingJournalType(filters.journalType)) {
       return { success: false, error: "Journal comptable non supporté" };
     }
+
+    const page = Math.max(1, Math.floor(filters.page ?? 1));
+    const requestedSize = Math.floor(filters.pageSize ?? GRAND_LIVRE_DEFAULT_PAGE_SIZE);
+    const pageSize = Math.min(
+      GRAND_LIVRE_MAX_PAGE_SIZE,
+      Math.max(1, requestedSize)
+    );
+    const skip = (page - 1) * pageSize;
 
     const journalTypeFilter: Prisma.JournalEntryWhereInput["journalType"] | undefined = filters.journalType
       ? isAccountingJournalType(filters.journalType)
@@ -128,23 +156,37 @@ export async function getGrandLivre(
             ? { OR: [{ letteringCode: { not: null } }, { lettrage: { not: null } }] }
             : {};
 
-    const lines = await prisma.journalEntryLine.findMany({
-      where: {
-        ...(filters.accountId ? { accountId: filters.accountId } : {}),
-        ...letteringFilter,
-        account: { societyId },
-        journalEntry: journalEntryWhere,
-      },
-      include: {
-        account: { select: { code: true, label: true } },
-        journalEntry: {
-          select: { entryDate: true, piece: true, journalType: true, label: true, status: true },
-        },
-      },
-      orderBy: [{ journalEntry: { entryDate: "asc" } }, { id: "asc" }],
-    });
+    const whereClause: Prisma.JournalEntryLineWhereInput = {
+      ...(filters.accountId ? { accountId: filters.accountId } : {}),
+      ...letteringFilter,
+      account: { societyId },
+      journalEntry: journalEntryWhere,
+    };
 
-    // Calcul du solde cumulé indépendant par compte.
+    // Pagination serveur : limite max 1000 lignes par appel pour éviter
+    // d'exploser la mémoire sur de gros grands livres. L'UI expose
+    // prev/next ; les exports CSV/PDF demandent explicitement un pageSize
+    // élevé (ex. 10000) pour tout récupérer.
+    // NB : le solde cumulé est calculé par compte à l'intérieur de la page.
+    // Pour un solde absolu depuis le début de l'exercice, demander la page
+    // complète via un pageSize suffisamment grand.
+    const [lines, total] = await Promise.all([
+      prisma.journalEntryLine.findMany({
+        where: whereClause,
+        include: {
+          account: { select: { code: true, label: true } },
+          journalEntry: {
+            select: { entryDate: true, piece: true, journalType: true, label: true, status: true },
+          },
+        },
+        orderBy: [{ journalEntry: { entryDate: "asc" } }, { id: "asc" }],
+        skip,
+        take: pageSize,
+      }),
+      prisma.journalEntryLine.count({ where: whereClause }),
+    ]);
+
+    // Calcul du solde cumulé indépendant par compte (sur la page courante).
     const soldesByAccount = new Map<string, number>();
     const data: GrandLivreRow[] = lines.map((line) => {
       const previousSolde = soldesByAccount.get(line.accountId) ?? 0;
@@ -167,7 +209,7 @@ export async function getGrandLivre(
       };
     });
 
-    return { success: true, data };
+    return { success: true, data: { data, total, page, pageSize } };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };

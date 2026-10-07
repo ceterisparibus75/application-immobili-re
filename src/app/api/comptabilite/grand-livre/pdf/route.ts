@@ -9,6 +9,12 @@ import {
   type GrandLivreExportRow,
 } from "@/lib/grand-livre-export";
 
+// La génération PDF via @react-pdf/renderer peut durer plusieurs secondes
+// sur de gros grands livres ; on force le runtime Node et on étend la limite
+// Vercel au-delà des 10s par défaut (Pro autorise jusqu'à 300s).
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 function isExportRow(value: unknown): value is GrandLivreExportRow {
   if (!value || typeof value !== "object") return false;
   const row = value as Record<string, unknown>;

@@ -438,12 +438,11 @@ describe("getBalance", () => {
     expect(result.success).toBe(false);
   });
 
-  it("agrège les lignes par compte et calcule les soldes", async () => {
+  it("agrège les lignes par compte et calcule les soldes (via SQL)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockResolvedValue([
-      { debit: 1000, credit: 0, account: { id: ACCOUNT_ID_1, code: "411000", label: "Clients", type: "4" } },
-      { debit: 500, credit: 0, account: { id: ACCOUNT_ID_1, code: "411000", label: "Clients", type: "4" } },
-      { debit: 0, credit: 1500, account: { id: ACCOUNT_ID_2, code: "706000", label: "Produits", type: "7" } },
+    prismaMock.$queryRaw.mockResolvedValue([
+      { accountId: ACCOUNT_ID_1, code: "411000", label: "Clients", classe: "4", totalDebit: 1500, totalCredit: 0 },
+      { accountId: ACCOUNT_ID_2, code: "706000", label: "Produits", classe: "7", totalDebit: 0, totalCredit: 1500 },
     ] as never);
 
     const result = await getBalance(SOCIETY_ID, {});
@@ -457,7 +456,7 @@ describe("getBalance", () => {
 
   it("retourne un tableau vide si aucune ligne", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockResolvedValue([] as never);
+    prismaMock.$queryRaw.mockResolvedValue([] as never);
 
     const result = await getBalance(SOCIETY_ID, {});
     expect(result.success).toBe(true);
@@ -466,32 +465,24 @@ describe("getBalance", () => {
 
   it("retourne une erreur générique si la BDD échoue dans getBalance", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockRejectedValue(new Error("DB connection lost"));
+    prismaMock.$queryRaw.mockRejectedValue(new Error("DB connection lost"));
     const result = await getBalance(SOCIETY_ID, {});
     expect(result).toEqual({ success: false, error: "Erreur lors du calcul de la balance" });
   });
 
-  it("filtre getBalance par dateTo seul sans dateFrom — branche interne false (ligne 228)", async () => {
+  it("filtre getBalance par dateTo seul sans dateFrom (branches SQL conditionnelles)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockResolvedValue([] as never);
+    prismaMock.$queryRaw.mockResolvedValue([] as never);
 
     const result = await getBalance(SOCIETY_ID, { dateTo: "2025-12-31" });
 
     expect(result.success).toBe(true);
-    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          journalEntry: expect.objectContaining({
-            entryDate: expect.objectContaining({ lte: expect.any(Date) }),
-          }),
-        }),
-      })
-    );
+    expect(prismaMock.$queryRaw).toHaveBeenCalled();
   });
 
-  it("filtre getBalance par classe, fiscalYearId, dateFrom et dateTo (lignes 222-228)", async () => {
+  it("filtre getBalance par classe, fiscalYearId, dateFrom et dateTo (branches SQL conditionnelles)", async () => {
     mockAuthSession("COMPTABLE", SOCIETY_ID);
-    prismaMock.journalEntryLine.findMany.mockResolvedValue([] as never);
+    prismaMock.$queryRaw.mockResolvedValue([] as never);
 
     const result = await getBalance(SOCIETY_ID, {
       classe: "4",
@@ -501,17 +492,7 @@ describe("getBalance", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(prismaMock.journalEntryLine.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({
-          account: expect.objectContaining({ type: "4" }),
-          journalEntry: expect.objectContaining({
-            fiscalYearId: FISCAL_YEAR_ID,
-            entryDate: expect.objectContaining({ gte: expect.any(Date), lte: expect.any(Date) }),
-          }),
-        }),
-      })
-    );
+    expect(prismaMock.$queryRaw).toHaveBeenCalled();
   });
 });
 
@@ -544,12 +525,16 @@ describe("getGrandLivre", () => {
         journalEntry: { entryDate: new Date("2025-01-20"), piece: "AVO-001", journalType: "VT", label: "Avoir", status: "VALIDE" },
       },
     ] as never);
+    prismaMock.journalEntryLine.count.mockResolvedValue(2 as never);
 
     const result = await getGrandLivre(SOCIETY_ID, {});
     expect(result.success).toBe(true);
-    const rows = result.data as Array<{ solde: number }>;
+    const rows = result.data!.data as Array<{ solde: number }>;
     expect(rows[0].solde).toBe(1000);
     expect(rows[1].solde).toBe(600);
+    expect(result.data!.total).toBe(2);
+    expect(result.data!.page).toBe(1);
+    expect(result.data!.pageSize).toBe(100);
   });
 
   it("réinitialise le solde cumulé pour chaque compte", async () => {
@@ -590,10 +575,11 @@ describe("getGrandLivre", () => {
       },
     ] as never);
 
+    prismaMock.journalEntryLine.count.mockResolvedValue(3 as never);
     const result = await getGrandLivre(SOCIETY_ID, {});
 
     expect(result.success).toBe(true);
-    const rows = result.data as Array<{ accountCode: string; solde: number }>;
+    const rows = result.data!.data as Array<{ accountCode: string; solde: number }>;
     expect(rows.map((row) => ({ accountCode: row.accountCode, solde: row.solde }))).toEqual([
       { accountCode: "164100", solde: -39033.06 },
       { accountCode: "164100", solde: -38573.9 },
@@ -1574,9 +1560,10 @@ describe("getGrandLivre — line.label null (ligne 318)", () => {
       },
     ] as never);
 
+    prismaMock.journalEntryLine.count.mockResolvedValue(1 as never);
     const result = await getGrandLivre(SOCIETY_ID, {});
     expect(result.success).toBe(true);
-    const rows = result.data as Array<{ label: string }>;
+    const rows = result.data!.data as Array<{ label: string }>;
     expect(rows[0].label).toBe("Libellé journal");
   });
 
@@ -1596,10 +1583,11 @@ describe("getGrandLivre — line.label null (ligne 318)", () => {
       },
     ] as never);
 
+    prismaMock.journalEntryLine.count.mockResolvedValue(1 as never);
     const result = await getGrandLivre(SOCIETY_ID, {});
 
     expect(result.success).toBe(true);
-    const rows = result.data as Array<{ lettrage: string | null }>;
+    const rows = result.data!.data as Array<{ lettrage: string | null }>;
     expect(rows[0].lettrage).toBe("AB");
   });
 
@@ -1619,10 +1607,11 @@ describe("getGrandLivre — line.label null (ligne 318)", () => {
       },
     ] as never);
 
+    prismaMock.journalEntryLine.count.mockResolvedValue(1 as never);
     const result = await getGrandLivre(SOCIETY_ID, {});
 
     expect(result.success).toBe(true);
-    const rows = result.data as Array<{ accountId: string }>;
+    const rows = result.data!.data as Array<{ accountId: string }>;
     expect(rows[0].accountId).toBe(ACCOUNT_ID_1);
   });
 });

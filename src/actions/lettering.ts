@@ -588,7 +588,10 @@ export async function getUnletteredEntries(
       };
     }
 
-    // Recuperer les lignes non lettrees pour ce compte dans cette societe
+    // Recuperer les lignes non lettrees pour ce compte dans cette societe.
+    // Borne defensive à 500 lignes : au-delà, l'UI de lettrage devient
+    // ingérable et le calcul de suggestions explose en mémoire. Pour les
+    // comptes très mouvementés, il faut d'abord lettrer par lots.
     const lines = await prisma.journalEntryLine.findMany({
       where: {
         accountId: parsed.data.accountId,
@@ -608,6 +611,7 @@ export async function getUnletteredEntries(
       orderBy: {
         journalEntry: { entryDate: "asc" },
       },
+      take: 500,
     });
 
     return {
@@ -732,6 +736,10 @@ export async function getLetteringSuggestions(
       };
     }
 
+    // Même borne défensive que getUnletteredEntries : au-delà de 500 lignes
+    // non lettrées, l'algorithme de combinaison explose (O(n²) + recherche
+    // de sous-ensemble). Les suggestions ne portent donc que sur les 500
+    // plus anciennes ; l'utilisateur lettre par lots.
     const lines = await prisma.journalEntryLine.findMany({
       where: {
         accountId: parsed.data.accountId,
@@ -752,6 +760,7 @@ export async function getLetteringSuggestions(
       orderBy: {
         journalEntry: { entryDate: "asc" },
       },
+      take: 500,
     });
 
     const availableCredits = lines
