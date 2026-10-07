@@ -59,7 +59,13 @@ export async function GET(req: NextRequest) {
     action: "EXPORT",
     entity: "JournalEntry",
     entityId: context.societyId,
-    details: { format: "FEC", fiscalYearId, year: yearStr, lineCount: result.lineCount },
+    details: {
+      format: "FEC",
+      fiscalYearId,
+      year: yearStr,
+      lineCount: result.lineCount,
+      numberingMode: result.numberingMode,
+    },
   });
 
   // BOM UTF-8 + contenu TSV
@@ -70,6 +76,11 @@ export async function GET(req: NextRequest) {
     headers: {
       "Content-Type": "text/tab-separated-values; charset=utf-8",
       "Content-Disposition": `attachment; filename="${result.filename}"`,
+      // "definitive" : EcritureNum persistes (exercice clos ou numerotation
+      // deja attribuee), le re-export produira un fichier byte-identique.
+      // "provisional" : au moins une ecriture est numerotee a la volee ;
+      // l'ordre et les numeros peuvent changer entre deux exports.
+      "X-FEC-Numbering": result.numberingMode,
     },
   });
 }
@@ -95,10 +106,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  return NextResponse.json({
-    lineCount: result.lineCount,
-    anomalies: result.anomalies,
-    stats: result.stats,
-    filename: result.filename,
-  });
+  return NextResponse.json(
+    {
+      lineCount: result.lineCount,
+      anomalies: result.anomalies,
+      stats: result.stats,
+      filename: result.filename,
+      numberingMode: result.numberingMode,
+    },
+    { headers: { "X-FEC-Numbering": result.numberingMode } }
+  );
 }

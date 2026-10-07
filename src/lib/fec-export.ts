@@ -70,12 +70,24 @@ export interface FecStats {
   balanced: boolean;
 }
 
+/**
+ * Statut de la numerotation FEC (EcritureNum) de l'export :
+ * - "definitive" : toutes les ecritures ont un fecEcritureNum persiste
+ *   (exercice clos ou numerotation deja attribuee). Deux exports successifs
+ *   produiront STRICTEMENT le meme fichier (CGI art. 54).
+ * - "provisional" : au moins une ecriture n'a pas de fecEcritureNum ; les
+ *   numeros sont alors calcules a la volee et l'ordre peut varier d'un
+ *   export a l'autre si de nouvelles ecritures sont ajoutees.
+ */
+export type FecNumberingMode = "definitive" | "provisional";
+
 export interface FecResult {
   content: string;
   lineCount: number;
   anomalies: FecAnomaly[];
   stats: FecStats;
   filename: string;
+  numberingMode: FecNumberingMode;
 }
 
 export async function generateFec(
@@ -121,6 +133,7 @@ export async function generateFec(
           balanced: true,
         },
         filename: `${siren}FEC${fmtDate(new Date())}.txt`,
+        numberingMode: "provisional",
       };
     }
   }
@@ -153,6 +166,11 @@ export async function generateFec(
       ? { in: getAccountingJournalTypeAliases(options.journalType) }
       : options.journalType;
   }
+  // Ordre : fecEcritureNum ASC en premier (nulls en dernier) pour respecter
+  // l'ordre persiste quand les numeros sont attribues. Pour les ecritures non
+  // numerotees, on retombe sur l'ordre naturel (entryDate puis createdAt), qui
+  // est aussi l'ordre utilise par assignFecNumbersToFiscalYear — garantie que
+  // l'ordre d'export reste coherent avec la future attribution de numeros.
   const entries = await prisma.journalEntry.findMany({
     where,
     include: {
@@ -163,12 +181,21 @@ export async function generateFec(
         },
       },
     },
-    orderBy: [{ journalType: "asc" }, { entryDate: "asc" }, { createdAt: "asc" }],
+    orderBy: [
+      { fecEcritureNum: { sort: "asc", nulls: "last" } },
+      { entryDate: "asc" },
+      { createdAt: "asc" },
+    ],
   });
 
   const rows: string[] = [FEC_HEADER];
   const anomalies: FecAnomaly[] = [];
-  const counters: Record<string, number> = {};
+  // Compteur de fallback : utilise uniquement pour les ecritures sans
+  // fecEcritureNum persiste (exercice non clos ou ligne historique anterieure
+  // a l'introduction du champ). Si au moins une entry utilise ce fallback, le
+  // mode global passe en "provisional".
+  let provisionalCounter = 0;
+  let hasProvisional = false;
   let totalDebit = 0;
   let totalCredit = 0;
 
@@ -182,8 +209,18 @@ export async function generateFec(
     const journalLib = canonicalJournalType
       ? "Journal - " + ACCOUNTING_JOURNAL_LABELS[canonicalJournalType]
       : entry.journalType;
-    counters[journalCode] = (counters[journalCode] ?? 0) + 1;
-    const ecritureNum = `${journalCode}${String(counters[journalCode]).padStart(6, "0")}`;
+
+    // Priorite au numero persiste (CGI art. 54 — inalterabilite d'un exercice
+    // clos). Fallback : compteur sequentiel calcule a la volee, marque la
+    // numerotation comme provisoire.
+    let ecritureNum: string;
+    if (entry.fecEcritureNum) {
+      ecritureNum = entry.fecEcritureNum;
+    } else {
+      provisionalCounter += 1;
+      ecritureNum = String(provisionalCounter).padStart(8, "0");
+      hasProvisional = true;
+    }
 
     if (entry.lines.length === 0) {
       anomalies.push({
@@ -326,6 +363,13 @@ export async function generateFec(
   }
   const filename = `${siren}FEC${closingDate}.txt`;
 
+  // Numerotation "definitive" uniquement si TOUTES les entries ont un
+  // fecEcritureNum persiste. Un seul fallback suffit a rendre l'export
+  // provisoire. Un export vide est considere provisoire par defaut (aucune
+  // garantie d'inalterabilite n'a de sens sans ecritures).
+  const numberingMode: FecNumberingMode =
+    entries.length > 0 && !hasProvisional ? "definitive" : "provisional";
+
   return {
     content: rows.join("\r\n"),
     lineCount,
@@ -338,5 +382,6 @@ export async function generateFec(
       balanced: Math.abs(totalDebit - totalCredit) <= 0.01,
     },
     filename,
+    numberingMode,
   };
 }

@@ -24,6 +24,7 @@ FAILED_CANDIDATES=(
   "20260930100000_bank_account_sync_diagnostics"
   "20261005150000_bank_consent_expiry_notice"
   "20261007120000_accounting_integrity_fixes"
+  "20261007210000_journal_entry_fec_number"
 )
 
 for m in "${FAILED_CANDIDATES[@]}"; do

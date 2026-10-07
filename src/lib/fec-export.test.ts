@@ -410,6 +410,36 @@ describe("generateFec", () => {
       }
     });
 
+    it("utilise le fecEcritureNum persiste quand il est renseigne (inalterabilite CGI 54)", async () => {
+      const persisted = makeEntry({
+        fecEcritureNum: "00000042",
+        piece: "FAC-042",
+      });
+      prismaMock.journalEntry.findMany.mockResolvedValue([persisted] as never);
+
+      const result = await generateFec(SOCIETY_ID);
+      expect(result.numberingMode).toBe("definitive");
+      const dataLines = result.content.split("\n").slice(1).filter(Boolean);
+      // EcritureNum est la 3e colonne (index 2)
+      expect(dataLines[0].split("\t")[2]).toBe("00000042");
+    });
+
+    it("retombe en provisoire si au moins une entry n'a pas de fecEcritureNum", async () => {
+      const persisted = makeEntry({ id: "e1", fecEcritureNum: "00000001", piece: "FAC-001" });
+      const unpersisted = makeEntry({ id: "e2", piece: "FAC-002" });
+      prismaMock.journalEntry.findMany.mockResolvedValue([persisted, unpersisted] as never);
+
+      const result = await generateFec(SOCIETY_ID);
+      expect(result.numberingMode).toBe("provisional");
+      const dataLines = result.content.split("\n").slice(1).filter(Boolean);
+      // Premier bloc : numero persiste 00000001
+      expect(dataLines[0].split("\t")[2]).toBe("00000001");
+      // Second bloc : numero calcule a la volee -> 00000001 (compteur
+      // provisoire independant), confirme que le fallback n'utilise pas la
+      // sequence du premier
+      expect(dataLines[2].split("\t")[2]).toBe("00000001");
+    });
+
     it("mélange auxiliaire/non-auxiliaire dans une même écriture", async () => {
       const mixed = makeEntry({
         lines: [

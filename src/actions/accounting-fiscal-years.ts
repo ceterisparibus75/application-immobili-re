@@ -18,6 +18,7 @@ import {
   type FiscalYearRow,
   type OpeningEntryLine,
 } from "@/actions/accounting-shared";
+import { assignFecNumbersToFiscalYear } from "@/actions/accounting-fec-numbering";
 
 // ─── Exercices fiscaux ────────────────────────────────────────────────────────
 
@@ -114,6 +115,24 @@ export async function closeFiscalYear(societyId: string, fiscalYearId: string): 
       entityId: fiscalYearId,
       details: { action: "close", year: checklist.year },
     });
+
+    // Attribution systematique des numeros FEC (EcritureNum) a la cloture.
+    // Garantit l'inalterabilite CGI art. 54 : tout re-export du FEC produira
+    // le meme fichier. Idempotent : si deja numerote, no-op.
+    // On ne fait pas remonter l'erreur en cas d'echec (la cloture reste
+    // valide), mais on la logue : l'admin pourra relancer manuellement
+    // assignFecNumbersToFiscalYear plus tard.
+    try {
+      const numbering = await assignFecNumbersToFiscalYear(societyId, fiscalYearId);
+      if (!numbering.success) {
+        console.warn(
+          "[closeFiscalYear] Numerotation FEC non appliquee automatiquement :",
+          numbering.error
+        );
+      }
+    } catch (error) {
+      console.warn("[closeFiscalYear] Numerotation FEC a echoue :", error);
+    }
 
     revalidatePath("/comptabilite");
     return { success: true };

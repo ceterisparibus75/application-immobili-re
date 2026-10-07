@@ -2517,6 +2517,13 @@ model JournalEntry {
   validatedAt   DateTime?
   documentId    String? // Pièce justificative GED liée à l'écriture
 
+  // Numéro d'écriture FEC (DGFiP A.47 A-1).
+  // Attribué au moment de la clôture de l'exercice (ou via
+  // assignFecNumbersToFiscalYear). Séquentiel par fiscalYearId, zero-paddé sur
+  // 8 chiffres, ordonné par (entryDate ASC, createdAt ASC). Immuable une fois
+  // posé — garantit l'inaltérabilité exigée par l'article 54 du CGI.
+  fecEcritureNum String?
+
   society                     Society                      @relation(fields: [societyId], references: [id], onDelete: Cascade)
   lines                       JournalEntryLine[]
   fiscalYear                  FiscalYear?                  @relation(fields: [fiscalYearId], references: [id])
@@ -2529,6 +2536,7 @@ model JournalEntry {
   @@index([societyId])
   @@index([societyId, journalType, entryDate])
   @@index([documentId])
+  @@index([fiscalYearId, fecEcritureNum])
 }
 
 /// Ligne d'écriture comptable
