@@ -360,7 +360,7 @@ export default async function DiagnosticFacturationPage(props: { searchParams: S
         <CardHeader>
           <CardTitle className="text-base">Détail par bail</CardTitle>
           <CardDescription>
-            {totalLeases} bail{totalLeases > 1 ? "x" : ""} actif{totalLeases > 1 ? "s" : ""} sur la période sélectionnée
+            {totalLeases} {totalLeases > 1 ? "baux actifs" : "bail actif"} sur la période sélectionnée
           </CardDescription>
         </CardHeader>
         <CardContent>

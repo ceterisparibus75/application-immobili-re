@@ -1196,7 +1196,7 @@ function digestSocietyBlock(s: DigestSocietyBlockParams): string {
   }
   if (s.leasesEndingSoon > 0) {
     rows.push(
-      `<li style="margin:2px 0;color:${BRAND.text};font-size:13px;">⏳ <strong>${s.leasesEndingSoon}</strong> bail${s.leasesEndingSoon > 1 ? "s" : ""} à échéance sous 30 j</li>`
+      `<li style="margin:2px 0;color:${BRAND.text};font-size:13px;">⏳ <strong>${s.leasesEndingSoon}</strong> ${s.leasesEndingSoon > 1 ? "baux" : "bail"} à échéance sous 30 j</li>`
     );
   }
   if (s.documentsExpiringSoon > 0) {

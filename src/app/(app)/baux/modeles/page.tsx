@@ -323,7 +323,7 @@ export default function ModelesPage() {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">
-                    {tpl._count.leases} bail{tpl._count.leases > 1 ? "x" : ""} utilisant ce modele
+                    {tpl._count.leases} {tpl._count.leases > 1 ? "baux" : "bail"} utilisant ce modèle
                   </span>
                   <div className="flex gap-2">
                     <Button

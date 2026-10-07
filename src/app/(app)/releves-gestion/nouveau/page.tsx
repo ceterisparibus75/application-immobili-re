@@ -405,7 +405,7 @@ export default function NouveauDecompteGestionPage() {
                 {selectedLeaseIds.length > 0 && (
                   <div className="flex items-center justify-between pt-2">
                     <p className="text-sm text-muted-foreground">
-                      {selectedLeaseIds.length} bail{selectedLeaseIds.length > 1 ? "x" : ""} sélectionné{selectedLeaseIds.length > 1 ? "s" : ""}
+                      {selectedLeaseIds.length} {selectedLeaseIds.length > 1 ? "baux sélectionnés" : "bail sélectionné"}
                     </p>
                     <Button
                       type="button"

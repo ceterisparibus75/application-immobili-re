@@ -273,7 +273,7 @@ export function BauxViewToggle({
       {/* Toggle vue */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm text-muted-foreground">
-          {allActifs.length} bail{allActifs.length > 1 ? "s" : ""} actif
+          {allActifs.length} {allActifs.length > 1 ? "baux actifs" : "bail actif"}
           {allActifs.length > 1 ? "s" : ""}
           {allActifs.length > 0 && (
             <span className="ml-1.5">
@@ -359,7 +359,7 @@ export function BauxViewToggle({
                     <MapPin className="h-3 w-3 shrink-0" />
                     {group.buildingCity}
                     <span className="text-muted-foreground/50 mx-1">·</span>
-                    {group.leases.length} bail{group.leases.length > 1 ? "s" : ""}
+                    {group.leases.length} {group.leases.length > 1 ? "baux" : "bail"}
                   </p>
                 </div>
               </div>
@@ -417,7 +417,7 @@ function BauxTableGroup({
               <MapPin className="h-3 w-3 shrink-0" />
               {group.buildingCity}
               <span className="text-muted-foreground/50 mx-1">·</span>
-              {group.leases.length} bail{group.leases.length > 1 ? "s" : ""}
+              {group.leases.length} {group.leases.length > 1 ? "baux" : "bail"}
             </p>
           </div>
         </div>

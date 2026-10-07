@@ -96,7 +96,7 @@ export default async function LocationPage() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Location</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            {activeLeases} bail{activeLeases !== 1 ? "s" : ""} actif{activeLeases !== 1 ? "s" : ""}{" · "}
+            {activeLeases} {activeLeases > 1 ? "baux" : "bail"} actif{activeLeases > 1 ? "s" : ""}{" · "}
             {formatCurrency(monthlyRent)} HT/mois
           </p>
         </div>

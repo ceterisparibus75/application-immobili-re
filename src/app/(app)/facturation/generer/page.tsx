@@ -277,7 +277,7 @@ export default function GenererFacturesPage() {
             </div>
             {result.skipped > 0 && (
               <p className="text-sm text-muted-foreground">
-                {result.skipped} bail{result.skipped !== 1 ? "s" : ""} ignoré{result.skipped !== 1 ? "s" : ""} (facture déjà existante)
+                {result.skipped} {result.skipped > 1 ? "baux" : "bail"} ignoré{result.skipped > 1 ? "s" : ""} (facture déjà existante)
               </p>
             )}
             {result.errors.length > 0 && (
@@ -452,7 +452,7 @@ export default function GenererFacturesPage() {
         <CardHeader>
           <CardTitle>Baux à facturer</CardTitle>
           <CardDescription>
-            {leases.length} bail{leases.length !== 1 ? "s" : ""} actif{leases.length !== 1 ? "s" : ""} —{" "}
+            {leases.length} {leases.length > 1 ? "baux" : "bail"} actif{leases.length > 1 ? "s" : ""} —{" "}
             {selectedIds.size} sélectionné{selectedIds.size !== 1 ? "s" : ""}
           </CardDescription>
         </CardHeader>
