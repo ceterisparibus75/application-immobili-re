@@ -4,7 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
 import { bankReconciliationSchema, type BankReconciliationInput } from "@/validations/bank";
-import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
+import {
+  ClosedFiscalYearError,
+  NoOpenFiscalYearError,
+  requireOpenFiscalYearIdForDate,
+} from "@/lib/accounting-period";
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { generateAndSendQuittance } from "@/actions/invoice";
@@ -177,6 +181,8 @@ export async function autoReconcile(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[autoReconcile]", error);
     return { success: false, error: "Erreur lors du rapprochement automatique" };
   }
@@ -294,6 +300,8 @@ export async function manualReconcile(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[manualReconcile]", error);
     return { success: false, error: "Erreur lors du rapprochement" };
   }
@@ -389,6 +397,8 @@ export async function unreconcile(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[unreconcile]", error);
     return { success: false, error: "Erreur lors de l'annulation" };
   }
@@ -442,6 +452,8 @@ export async function generateJournalEntry(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[generateJournalEntry]", error);
     return { success: false, error: "Erreur lors de la génération de l'écriture" };
   }
@@ -512,6 +524,8 @@ export async function generateMissingBankJournalEntries(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[generateMissingBankJournalEntries]", error);
     return { success: false, error: "Erreur lors de la génération des écritures BQUE manquantes" };
   }
@@ -578,10 +592,18 @@ export async function reconcileWithSupplierInvoice(
         ]);
 
         const amount = roundCents(Math.abs(transaction.amount));
+        // Variante stricte : throw NoOpenFiscalYearError si aucun exercice
+        // n'est ouvert à la date de la transaction — catché au niveau de
+        // l'action pour renvoyer un ActionResult explicite.
+        const fiscalYearId = await requireOpenFiscalYearIdForDate(
+          tx,
+          societyId,
+          transaction.transactionDate
+        );
         const entry = await tx.journalEntry.create({
           data: {
             societyId,
-            fiscalYearId: await resolveOpenFiscalYearIdForDate(tx, societyId, transaction.transactionDate),
+            fiscalYearId,
             journalType: "BQUE",
             entryDate: transaction.transactionDate,
             piece: transaction.reference ?? undefined,
@@ -654,6 +676,8 @@ export async function reconcileWithSupplierInvoice(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[reconcileWithSupplierInvoice]", error);
     return { success: false, error: "Erreur lors du rapprochement fournisseur" };
   }
@@ -728,10 +752,17 @@ export async function reconcileWithBalanceAdjustment(
         const amount = roundCents(transaction.amount);
         const name = tenantDisplayName(adjustment.tenant);
 
+        // Variante stricte : throw NoOpenFiscalYearError si aucun exercice
+        // n'est ouvert — géré par le catch de l'action.
+        const fiscalYearId = await requireOpenFiscalYearIdForDate(
+          tx,
+          societyId,
+          transaction.transactionDate
+        );
         const entry = await tx.journalEntry.create({
           data: {
             societyId,
-            fiscalYearId: await resolveOpenFiscalYearIdForDate(tx, societyId, transaction.transactionDate),
+            fiscalYearId,
             journalType: "BQUE",
             entryDate: transaction.transactionDate,
             label: `${adjustment.label} - ${name}`,
@@ -781,6 +812,8 @@ export async function reconcileWithBalanceAdjustment(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[reconcileWithBalanceAdjustment]", error);
     return { success: false, error: "Erreur lors du rapprochement" };
   }
@@ -860,6 +893,8 @@ export async function reconcileWithJournalEntry(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[reconcileWithJournalEntry]", error);
     return { success: false, error: "Erreur lors du rapprochement avec l'écriture BQUE" };
   }
@@ -978,6 +1013,8 @@ export async function reconcileWithInvoice(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[reconcileWithInvoice]", error);
     return { success: false, error: "Erreur lors du rapprochement" };
   }
@@ -1078,12 +1115,21 @@ export async function reconcileWithLoanLine(
         },
       ];
 
+      // Variante stricte : throw NoOpenFiscalYearError si aucun exercice
+      // n'est ouvert à la date de la transaction. Catché au niveau de l'action.
+      const loanJournalFiscalYearId = transaction.journalEntryId
+        ? null
+        : await requireOpenFiscalYearIdForDate(
+            tx,
+            societyId,
+            transaction.transactionDate
+          );
       const journalEntry = transaction.journalEntryId
         ? null
         : await tx.journalEntry.create({
             data: {
               societyId,
-              fiscalYearId: await resolveOpenFiscalYearIdForDate(tx, societyId, transaction.transactionDate),
+              fiscalYearId: loanJournalFiscalYearId!,
               journalType: "BQUE",
               entryDate: transaction.transactionDate,
               label: transaction.label,
@@ -1157,6 +1203,8 @@ export async function reconcileWithLoanLine(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[reconcileWithLoanLine]", error);
     return { success: false, error: "Erreur lors du rapprochement" };
   }
@@ -1380,6 +1428,8 @@ export async function reconcileTransactionWithAllocations(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[reconcileTransactionWithAllocations]", error);
     return { success: false, error: "Erreur lors de la ventilation du virement" };
   }
@@ -1519,6 +1569,8 @@ export async function closeTransactionWithSurplusCredit(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[closeTransactionWithSurplusCredit]", error);
     return { success: false, error: "Erreur lors de la clôture du virement" };
   }

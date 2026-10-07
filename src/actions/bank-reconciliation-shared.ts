@@ -2,7 +2,7 @@
 // (importé par bank-reconciliation-queries / -mutations).
 
 import { prisma } from "@/lib/prisma";
-import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
+import { requireOpenFiscalYearIdForDate } from "@/lib/accounting-period";
 import type { Prisma } from "@/generated/prisma/client";
 import {
   resolveAccountForCategory,
@@ -375,10 +375,18 @@ export async function createBankJournalEntryForTransaction(
     ];
   }
 
+  // Variante stricte : throw NoOpenFiscalYearError si aucun exercice
+  // n'est ouvert à la date de la transaction. Les callers (server actions
+  // de rapprochement) catchent cette erreur pour retourner un ActionResult.
+  const fiscalYearId = await requireOpenFiscalYearIdForDate(
+    client,
+    societyId,
+    transaction.transactionDate
+  );
   const entry = await client.journalEntry.create({
     data: {
       societyId,
-      fiscalYearId: await resolveOpenFiscalYearIdForDate(client, societyId, transaction.transactionDate),
+      fiscalYearId,
       journalType: "BQUE",
       entryDate: transaction.transactionDate,
       label: transaction.label,

@@ -159,7 +159,8 @@ export async function POST(req: NextRequest) {
       label: parsed.data.label,
       piece: parsed.data.piece ?? null,
       reference: parsed.data.reference ?? null,
-      fiscalYearId: fiscalYear?.id,
+      // fiscalYear est garanti non-null par les guards ci-dessus.
+      fiscalYearId: fiscalYear.id,
       documentId,
       isValidated: false,
       status: "BROUILLON",

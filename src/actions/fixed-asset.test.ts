@@ -78,7 +78,9 @@ describe("postFixedAssetDepreciation", () => {
       ],
     } as never);
     prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
-    prismaMock.fiscalYear.findFirst.mockResolvedValue(null);
+    // Un exercice fiscal ouvert couvre la date — requis depuis le durcissement
+    // de requireOpenFiscalYearIdForDate pour JournalEntry.
+    prismaMock.fiscalYear.findFirst.mockResolvedValue({ id: "fy-2026", isClosed: false } as never);
     prismaMock.journalEntry.create.mockResolvedValue({ id: "entry-1" } as never);
     prismaMock.fixedAssetDepreciationLine.count.mockResolvedValue(1);
 
@@ -101,5 +103,40 @@ describe("postFixedAssetDepreciation", () => {
     expect(prismaMock.fixedAssetDepreciationLine.update).toHaveBeenCalledWith(
       expect.objectContaining({ data: { status: "POSTED", journalEntryId: "entry-1" } })
     );
+  });
+
+  it("refuse explicitement si aucun exercice ouvert ne couvre la date de la dotation", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.fixedAsset.findFirst.mockResolvedValue({
+      id: ASSET_ID,
+      societyId: SOCIETY_ID,
+      name: "Rénovation toiture",
+      expenseAccountId: ACCOUNT_681,
+      depreciationAccountId: ACCOUNT_281,
+      expenseAccount: { id: ACCOUNT_681, code: "681100", label: "Dotations" },
+      depreciationAccount: { id: ACCOUNT_281, code: "281310", label: "Amortissements" },
+      depreciationLines: [
+        {
+          id: "line-1",
+          fiscalYear: 2026,
+          periodEnd: new Date("2026-12-31"),
+          amount: 5000,
+          status: "PLANNED",
+        },
+      ],
+    } as never);
+    prismaMock.$transaction.mockImplementation(async (fn: (tx: typeof prismaMock) => Promise<unknown>) => fn(prismaMock));
+    // Aucun exercice fiscal ouvert à la date de la dotation : requireOpenFiscalYearIdForDate
+    // doit throw NoOpenFiscalYearError, catché par l'action pour renvoyer un ActionResult explicite.
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(null);
+
+    const result = await postFixedAssetDepreciation(SOCIETY_ID, {
+      fixedAssetId: ASSET_ID,
+      fiscalYear: 2026,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Aucun exercice fiscal/);
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
 });

@@ -157,4 +157,35 @@ describe("liquidateVatPeriod", () => {
     expect(result.error).toMatch(/écarts/);
     expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
   });
+
+  it("refuse si aucun exercice fiscal n'est ouvert à la date de liquidation", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntry.findFirst.mockResolvedValue(null);
+    prismaMock.journalEntryLine.findMany.mockResolvedValue([
+      {
+        debit: 0,
+        credit: 200,
+        account: { id: "vat-collected", code: "445710", label: "TVA collectée" },
+      },
+    ] as never);
+    prismaMock.invoice.findMany.mockResolvedValue([{ totalVAT: 200 }] as never);
+    prismaMock.supplierInvoice.aggregate.mockResolvedValue({
+      _sum: { amountVAT: null },
+    } as never);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    prismaMock.$transaction.mockImplementation(async (fn: any) => fn(prismaMock));
+    prismaMock.accountingAccount.upsert.mockResolvedValue({ id: "vat-due" } as never);
+    // Aucun exercice fiscal ouvert à la date — resolveOpenFiscalYearIdForDate retourne null,
+    // l'action doit explicitement refuser au lieu de créer une écriture orpheline.
+    prismaMock.fiscalYear.findFirst.mockResolvedValue(null);
+
+    const result = await liquidateVatPeriod(SOCIETY_ID, {
+      dateFrom: "2026-01-01",
+      dateTo: "2026-01-31",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Aucun exercice fiscal/);
+    expect(prismaMock.journalEntry.create).not.toHaveBeenCalled();
+  });
 });

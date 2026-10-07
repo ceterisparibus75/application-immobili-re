@@ -4,7 +4,11 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createAuditLog } from "@/lib/audit";
-import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
+import {
+  ClosedFiscalYearError,
+  NoOpenFiscalYearError,
+  resolveOpenFiscalYearIdForDate,
+} from "@/lib/accounting-period";
 import { getChargeAccountCodePrefixes, type ChargeAccountingCategory } from "@/lib/charge-accounting-mapping";
 import { encrypt, decrypt } from "@/lib/encryption";
 import { createQontoTransfer } from "@/lib/qonto";
@@ -444,6 +448,12 @@ export async function validateSupplierInvoice(
 
     const invoiceEntryDate = new Date(invoice.invoiceDate);
     const invoiceFiscalYearId = await resolveOpenFiscalYearIdForDate(prisma, societyId, invoiceEntryDate);
+    if (!invoiceFiscalYearId) {
+      return {
+        success: false,
+        error: new NoOpenFiscalYearError(invoiceEntryDate).message,
+      };
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Résoudre le compte débité : compte sélectionné en priorité,
@@ -565,6 +575,8 @@ export async function validateSupplierInvoice(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[validateSupplierInvoice]", error);
     return { success: false, error: "Erreur lors de la validation" };
   }
@@ -649,6 +661,12 @@ export async function markSupplierInvoicePaid(
 
     const paidEntryDate = new Date(parsed.data.paidAt);
     const paidFiscalYearId = await resolveOpenFiscalYearIdForDate(prisma, societyId, paidEntryDate);
+    if (!paidFiscalYearId) {
+      return {
+        success: false,
+        error: new NoOpenFiscalYearError(paidEntryDate).message,
+      };
+    }
 
     const result = await prisma.$transaction(async (tx) => {
       // 1. Chercher les comptes 401 et 512
@@ -740,6 +758,8 @@ export async function markSupplierInvoicePaid(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[markSupplierInvoicePaid]", error);
     return { success: false, error: "Erreur lors du marquage comme payé" };
   }

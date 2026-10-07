@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { createAuditLog } from "@/lib/audit";
-import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
+import {
+  ClosedFiscalYearError,
+  NoOpenFiscalYearError,
+  requireOpenFiscalYearIdForDate,
+} from "@/lib/accounting-period";
 import {
   buildLinearDepreciationSchedule,
 } from "@/lib/fixed-assets";
@@ -203,7 +207,10 @@ export async function postFixedAssetDepreciation(
     const journalEntryIds = await prisma.$transaction(async (tx) => {
       const createdIds: string[] = [];
       for (const line of asset.depreciationLines) {
-        const fiscalYearId = await resolveOpenFiscalYearIdForDate(tx, societyId, line.periodEnd);
+        // Variante stricte : throw NoOpenFiscalYearError si aucun exercice
+        // n'est ouvert à la date de la dotation. Catché en bas pour renvoyer
+        // un ActionResult explicite.
+        const fiscalYearId = await requireOpenFiscalYearIdForDate(tx, societyId, line.periodEnd);
         const entry = await tx.journalEntry.create({
           data: {
             societyId,
@@ -273,6 +280,8 @@ export async function postFixedAssetDepreciation(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[postFixedAssetDepreciation]", error);
     return { success: false, error: "Erreur lors de la génération des dotations" };
   }

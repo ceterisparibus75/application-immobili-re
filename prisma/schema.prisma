@@ -2565,6 +2565,9 @@ model JournalEntry {
 
   @@index([societyId])
   @@index([societyId, journalType, entryDate])
+  // Accélère les lookups par exercice (grand livre, balance, export FEC).
+  // Préparé pour le passage NOT NULL sur fiscalYearId (migration à suivre).
+  @@index([societyId, fiscalYearId])
   @@index([documentId])
   @@index([fiscalYearId, fecEcritureNum])
 }

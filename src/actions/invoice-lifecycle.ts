@@ -25,6 +25,10 @@ import {
   createCustomerInvoiceJournalEntry,
   createCustomerPaymentJournalEntry,
 } from "@/lib/accounting-automation";
+import {
+  ClosedFiscalYearError,
+  NoOpenFiscalYearError,
+} from "@/lib/accounting-period";
 import { env } from "@/lib/env";
 import { getNextInvoiceNumber, getNextCreditNoteNumber, getNextReceiptNumber } from "./invoice-shared";
 
@@ -113,6 +117,8 @@ export async function recordPayment(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[recordPayment]", error);
     return { success: false, error: "Erreur lors de l'enregistrement du paiement" };
   }
@@ -551,6 +557,8 @@ export async function validateInvoice(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[validateInvoice]", error);
     return { success: false, error: "Erreur lors de la validation" };
   }
@@ -673,6 +681,8 @@ export async function validateBatchInvoices(
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    if (error instanceof NoOpenFiscalYearError) return { success: false, error: error.message };
+    if (error instanceof ClosedFiscalYearError) return { success: false, error: error.message };
     console.error("[validateBatchInvoices]", error);
     return { success: false, error: "Erreur lors de la validation en masse" };
   }

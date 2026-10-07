@@ -2,7 +2,11 @@
 
 import type { ActionResult } from "@/actions/society";
 import { createAuditLog } from "@/lib/audit";
-import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
+import {
+  ClosedFiscalYearError,
+  NoOpenFiscalYearError,
+  resolveOpenFiscalYearIdForDate,
+} from "@/lib/accounting-period";
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import {
@@ -298,6 +302,10 @@ export async function liquidateVatPeriod(
 
       const entryDate = filters.dateTo ? new Date(filters.dateTo) : new Date();
       const fiscalYearId = await resolveOpenFiscalYearIdForDate(tx, societyId, entryDate);
+      if (!fiscalYearId) {
+        // Lancé puis catché plus bas pour renvoyer un ActionResult explicite.
+        throw new NoOpenFiscalYearError(entryDate);
+      }
       const now = new Date();
       // L'écriture OD de liquidation TVA est auto-validée : les écarts
       // comptable/business ont déjà été contrôlés (hasDiscrepancy) et
@@ -345,6 +353,12 @@ export async function liquidateVatPeriod(
       return { success: false, error: error.message };
     }
     if (error instanceof ForbiddenError) {
+      return { success: false, error: error.message };
+    }
+    if (error instanceof NoOpenFiscalYearError) {
+      return { success: false, error: error.message };
+    }
+    if (error instanceof ClosedFiscalYearError) {
       return { success: false, error: error.message };
     }
     console.error("[liquidateVatPeriod]", error);

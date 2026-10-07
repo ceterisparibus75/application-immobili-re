@@ -70,8 +70,8 @@ export async function createJournalEntry(
           select: { id: true, isClosed: true },
         });
     if (parsed.data.fiscalYearId && !fiscalYear) return { success: false, error: "Exercice fiscal introuvable" };
-    if (!parsed.data.fiscalYearId && !fiscalYear) return { success: false, error: "Aucun exercice fiscal ouvert ne couvre cette date" };
-    if (fiscalYear?.isClosed) return { success: false, error: "Impossible de créer une écriture dans un exercice clôturé" };
+    if (!fiscalYear) return { success: false, error: "Aucun exercice fiscal ouvert ne couvre cette date" };
+    if (fiscalYear.isClosed) return { success: false, error: "Impossible de créer une écriture dans un exercice clôturé" };
 
     // Vérifier que chaque compte appartient à la société
     const accountIds = [...new Set(parsed.data.lines.map((l) => l.accountId))];
@@ -94,7 +94,8 @@ export async function createJournalEntry(
         entryDate,
         piece: parsed.data.piece,
         label: parsed.data.label,
-        fiscalYearId: fiscalYear?.id,
+        // fiscalYear est garanti non-null et non-clôturé par les guards ci-dessus.
+        fiscalYearId: fiscalYear.id,
         documentId: linkedDocument?.id ?? null,
         status: "BROUILLON",
         lines: {
@@ -181,8 +182,8 @@ export async function updateJournalEntry(
           select: { id: true, isClosed: true },
         });
     if (parsed.data.fiscalYearId && !fiscalYear) return { success: false, error: "Exercice fiscal introuvable" };
-    if (!parsed.data.fiscalYearId && !fiscalYear) return { success: false, error: "Aucun exercice fiscal ouvert ne couvre cette date" };
-    if (fiscalYear?.isClosed) return { success: false, error: "Impossible de modifier une écriture dans un exercice clôturé" };
+    if (!fiscalYear) return { success: false, error: "Aucun exercice fiscal ouvert ne couvre cette date" };
+    if (fiscalYear.isClosed) return { success: false, error: "Impossible de modifier une écriture dans un exercice clôturé" };
 
     const accountIds = [...new Set(parsed.data.lines.map((line) => line.accountId))];
     const accounts = await prisma.accountingAccount.findMany({
@@ -206,7 +207,8 @@ export async function updateJournalEntry(
           entryDate,
           piece: parsed.data.piece,
           label: parsed.data.label,
-          fiscalYearId: fiscalYear?.id,
+          // fiscalYear est garanti non-null par les guards ci-dessus.
+          fiscalYearId: fiscalYear.id,
           documentId: linkedDocument?.id ?? null,
           lines: {
             create: parsed.data.lines.map((line) => ({

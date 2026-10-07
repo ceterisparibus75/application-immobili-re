@@ -1,5 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
-import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
+import { requireOpenFiscalYearIdForDate } from "@/lib/accounting-period";
 
 type AccountingAccountRef = {
   id: string;
@@ -196,7 +196,10 @@ export async function createCustomerInvoiceJournalEntry(
 
   const journalType: Prisma.JournalEntryCreateInput["journalType"] = "VT";
   const label = `${isCreditNote ? "Avoir" : "Facture"} ${piece} - ${tenantName}`;
-  const fiscalYearId = await resolveOpenFiscalYearIdForDate(tx, societyId, invoice.issueDate);
+  // throw NoOpenFiscalYearError si aucun exercice ne couvre la date de la
+  // facture — l'appelant (validateInvoice, generateAndSendQuittance, …) doit
+  // catcher cette erreur et exposer un message clair à l'utilisateur.
+  const fiscalYearId = await requireOpenFiscalYearIdForDate(tx, societyId, invoice.issueDate);
   const entry = await tx.journalEntry.create({
     data: {
       societyId,
@@ -272,7 +275,9 @@ export async function createCustomerPaymentJournalEntry(
 
   const piece = payment.reference ?? payment.invoice.invoiceNumber ?? undefined;
   const method = payment.method ? ` (${payment.method})` : "";
-  const fiscalYearId = await resolveOpenFiscalYearIdForDate(tx, societyId, payment.paidAt);
+  // throw NoOpenFiscalYearError si aucun exercice n'est ouvert à la date du
+  // règlement — géré par l'appelant qui catche l'erreur.
+  const fiscalYearId = await requireOpenFiscalYearIdForDate(tx, societyId, payment.paidAt);
   const entry = await tx.journalEntry.create({
     data: {
       societyId,

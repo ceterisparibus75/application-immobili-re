@@ -11,4 +11,13 @@ beforeEach(() => {
     if (Array.isArray(arg)) return Promise.all(arg)
     return Promise.resolve(undefined)
   }) as never)
+  // Par defaut, tous les tests disposent d'un exercice fiscal ouvert : les
+  // helpers requireOpenFiscalYearIdForDate / resolveOpenFiscalYearIdForDate
+  // trouvent toujours un FiscalYear valide. Les tests qui veulent couvrir le
+  // cas "aucun exercice ouvert" (NoOpenFiscalYearError) ou "exercice clos"
+  // (ClosedFiscalYearError) surchargent explicitement ce mock.
+  prismaMock.fiscalYear.findFirst.mockResolvedValue({
+    id: "fy-default",
+    isClosed: false,
+  } as never)
 })
