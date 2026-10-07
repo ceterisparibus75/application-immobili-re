@@ -1,7 +1,11 @@
 // Types + helpers — pas de "use server".
 
 import { prisma } from "@/lib/prisma";
-import { getAccountingFallbackForCashflowCategory } from "@/lib/accounting-category-mapping";
+import {
+  resolveAccountForCategory,
+  loadMappingsForSociety,
+} from "@/lib/accounting-category-mapping";
+import { getCategoryLabel } from "@/lib/cashflow-categories";
 
 export type CategoryBreakdown = {
   categoryId: string;
@@ -131,7 +135,12 @@ export async function syncSimpleBankJournalEntryCounterpart(
   transactionId: string,
   category: string
 ): Promise<void> {
-  const fallback = getAccountingFallbackForCashflowCategory(category);
+  const mappings = await loadMappingsForSociety(societyId);
+  const fallback = resolveAccountForCategory(
+    mappings,
+    category,
+    getCategoryLabel(category)
+  );
   if (!fallback) return;
 
   const transaction = await prisma.bankTransaction.findFirst({

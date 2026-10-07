@@ -663,6 +663,7 @@ model Society {
   chargeStatementDeliveries ChargeStatementDelivery[]
   emailDeliveryProofs      EmailDeliveryProof[]
   lotOwnerships            LotOwnership[]
+  accountingCategoryMappings AccountingCategoryMapping[]
 
   // Numérotation baux
   leasePrefix     String? // Préfixe numérotation bail (ex: "BAIL")
@@ -2494,6 +2495,35 @@ model AccountingAccount {
   @@unique([societyId, code])
   @@index([societyId])
   @@index([societyId, type])
+}
+
+/// Mapping personnalisable catégorie → compte PCG, par société.
+///
+/// Deux clés possibles (exclusives) :
+///  - cashflowCategoryId : ID d'une catégorie cashflow (ex: "energie", "assurance")
+///  - keyword            : mot-clé libre à matcher contre le nom d'une catégorie
+///                         de charge (ex: "ELECTRICITE", "ASCENSEUR")
+///
+/// Un seul des deux doit être renseigné à la fois. L'unicité
+/// (societyId, cashflowCategoryId) / (societyId, keyword) empêche les doublons.
+model AccountingCategoryMapping {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  societyId String
+
+  cashflowCategoryId String?
+  keyword            String?
+
+  accountCode  String
+  accountLabel String?
+  notes        String?
+
+  society Society @relation(fields: [societyId], references: [id], onDelete: Cascade)
+
+  @@unique([societyId, cashflowCategoryId])
+  @@unique([societyId, keyword])
+  @@index([societyId])
 }
 
 /// Écriture comptable (en-tête)

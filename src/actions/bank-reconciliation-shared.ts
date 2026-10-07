@@ -5,9 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { resolveOpenFiscalYearIdForDate } from "@/lib/accounting-period";
 import type { Prisma } from "@/generated/prisma/client";
 import {
-  getAccountingFallbackForCashflowCategory,
+  resolveAccountForCategory,
+  loadMappingsForSociety,
   type AccountingAccountFallback,
 } from "@/lib/accounting-category-mapping";
+import { getCategoryLabel } from "@/lib/cashflow-categories";
 
 // ============================================================
 // TYPES
@@ -324,9 +326,14 @@ export async function createBankJournalEntryForTransaction(
   const amount = Math.abs(transaction.amount);
   const isIncome = transaction.amount > 0;
   const hasInvoice = transaction.reconciliations.length > 0;
+  const mappings = hasInvoice ? [] : await loadMappingsForSociety(societyId);
   const categoryContraFallback = hasInvoice
     ? null
-    : getAccountingFallbackForCashflowCategory(transaction.category);
+    : resolveAccountForCategory(
+        mappings,
+        transaction.category,
+        transaction.category ? getCategoryLabel(transaction.category) : null
+      );
 
   const bankAccountFallback = transaction.bankAccount
     ? buildBankAccountFallback(transaction.bankAccount)

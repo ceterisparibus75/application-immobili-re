@@ -47,3 +47,120 @@ export function getAccountingFallbackForCashflowCategory(
   if (!category || !CATEGORY_IDS.has(category)) return null;
   return CASHFLOW_ACCOUNTING_MAPPINGS[category as CashflowCategoryId] ?? null;
 }
+
+// ============================================================================
+// Resolver configurable — tient compte des mappings personnalisés par société
+// ============================================================================
+
+/**
+ * Snapshot minimal d'un mapping utilisateur, tel que lu en base.
+ * Volontairement pur / sans dépendance Prisma pour rester testable.
+ */
+export type AccountingCategoryMappingRecord = {
+  cashflowCategoryId: string | null;
+  keyword: string | null;
+  accountCode: string;
+  accountLabel: string | null;
+};
+
+function normalizeKeyword(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+/**
+ * Résout le compte PCG à utiliser pour une catégorie donnée, dans l'ordre :
+ *   1. Mapping utilisateur par `cashflowCategoryId` (si présent)
+ *   2. Mapping utilisateur par `keyword` (match insensible sur le nom)
+ *   3. Fallback hard-codé historique (`CASHFLOW_ACCOUNTING_MAPPINGS`)
+ *
+ * Fonction pure — les mappings sont fournis en argument. Les call sites
+ * doivent les charger depuis la base (`prisma.accountingCategoryMapping`).
+ */
+export function resolveAccountForCategory(
+  mappings: ReadonlyArray<AccountingCategoryMappingRecord> | null | undefined,
+  cashflowCategoryId: string | null | undefined,
+  categoryName: string | null | undefined
+): AccountingAccountFallback | null {
+  const safeMappings: ReadonlyArray<AccountingCategoryMappingRecord> =
+    Array.isArray(mappings) ? mappings : [];
+
+  // 1. Lookup par ID de catégorie cashflow.
+  if (cashflowCategoryId) {
+    const direct = safeMappings.find((m) => m.cashflowCategoryId === cashflowCategoryId);
+    if (direct) {
+      return {
+        code: direct.accountCode,
+        label: direct.accountLabel ?? direct.accountCode,
+        type: direct.accountCode.slice(0, 1),
+      };
+    }
+  }
+
+  // 2. Lookup par mot-clé sur le nom lisible de la catégorie.
+  if (categoryName) {
+    const haystack = normalizeKeyword(categoryName);
+    const byKeyword = safeMappings.find((m) => {
+      if (!m.keyword) return false;
+      const needle = normalizeKeyword(m.keyword);
+      return needle.length > 0 && haystack.includes(needle);
+    });
+    if (byKeyword) {
+      return {
+        code: byKeyword.accountCode,
+        label: byKeyword.accountLabel ?? byKeyword.accountCode,
+        type: byKeyword.accountCode.slice(0, 1),
+      };
+    }
+  }
+
+  // 3. Fallback hard-codé pour compat ascendante.
+  return getAccountingFallbackForCashflowCategory(cashflowCategoryId ?? null);
+}
+
+/**
+ * Variante "fire-and-forget" idéale pour les sites qui veulent déléguer
+ * entièrement le chargement : passer `[]` donne le comportement historique.
+ */
+export function resolveAccountForCashflowCategory(
+  mappings: ReadonlyArray<AccountingCategoryMappingRecord>,
+  cashflowCategoryId: string | null | undefined
+): AccountingAccountFallback | null {
+  return resolveAccountForCategory(mappings, cashflowCategoryId ?? null, null);
+}
+
+// ============================================================================
+// Chargement DB — helper serveur (non "use server")
+// ============================================================================
+
+import { prisma } from "@/lib/prisma";
+
+/**
+ * Charge les mappings personnalisés d'une société depuis la base.
+ *
+ * Résilient : si la table n'existe pas encore (DB legacy avant migration),
+ * on retombe sur un tableau vide — `resolveAccountForCategory` repartira
+ * alors sur le fallback hard-codé.
+ */
+export async function loadMappingsForSociety(
+  societyId: string
+): Promise<AccountingCategoryMappingRecord[]> {
+  try {
+    const rows = await prisma.accountingCategoryMapping.findMany({
+      where: { societyId },
+      select: {
+        cashflowCategoryId: true,
+        keyword: true,
+        accountCode: true,
+        accountLabel: true,
+      },
+    });
+    return Array.isArray(rows) ? rows : [];
+  } catch (error) {
+    console.error("[loadMappingsForSociety]", error);
+    return [];
+  }
+}
