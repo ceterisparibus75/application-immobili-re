@@ -27,7 +27,6 @@ FAILED_CANDIDATES=(
   "20261007200000_journal_entry_fiscal_year_backfill"
   "20261007210000_journal_entry_fec_number"
   "20261007220000_accounting_category_mapping"
-  "20261007230000_journal_entry_fiscal_year_not_null"
 )
 
 for m in "${FAILED_CANDIDATES[@]}"; do

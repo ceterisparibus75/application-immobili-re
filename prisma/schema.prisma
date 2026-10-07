@@ -2540,12 +2540,7 @@ model JournalEntry {
   reference     String? // Référence facture, bail, etc.
   isValidated   Boolean     @default(false)
   status        EntryStatus @default(BROUILLON)
-  // NOT NULL depuis la migration 20261007230000_journal_entry_fiscal_year_not_null
-  // (precedee par le backfill 20261007200000 + helper strict
-  // requireOpenFiscalYearIdForDate dans src/lib/accounting-period.ts).
-  // Garantit l'inaltérabilité FEC (CGI art. 54) : toute écriture appartient
-  // explicitement a un exercice.
-  fiscalYearId  String
+  fiscalYearId  String?
   validatedById String?
   // Horodatage de la validation effective (passage BROUILLON → VALIDEE).
   // Null tant que l'écriture est en brouillon.
@@ -2561,7 +2556,7 @@ model JournalEntry {
 
   society                     Society                      @relation(fields: [societyId], references: [id], onDelete: Cascade)
   lines                       JournalEntryLine[]
-  fiscalYear                  FiscalYear                   @relation(fields: [fiscalYearId], references: [id])
+  fiscalYear                  FiscalYear?                  @relation(fields: [fiscalYearId], references: [id])
   validatedBy                 User?                        @relation("JournalEntryValidator", fields: [validatedById], references: [id])
   bankTransaction             BankTransaction?             @relation("BankTransactionJournalEntry")
   document                    Document?                    @relation("JournalEntryDocument", fields: [documentId], references: [id], onDelete: SetNull)
@@ -2571,6 +2566,7 @@ model JournalEntry {
   @@index([societyId])
   @@index([societyId, journalType, entryDate])
   // Accélère les lookups par exercice (grand livre, balance, export FEC).
+  // Préparé pour le passage NOT NULL sur fiscalYearId (migration à suivre).
   @@index([societyId, fiscalYearId])
   @@index([documentId])
   @@index([fiscalYearId, fecEcritureNum])
