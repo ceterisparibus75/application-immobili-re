@@ -28,6 +28,7 @@ import { SubmitEInvoiceButton } from "./_components/submit-einvoice-button";
 import { PaStatusCard } from "./_components/pa-status-card";
 import { LinkBuildingButton } from "./_components/link-building-button";
 import { SettleAvoirButton } from "./_components/settle-avoir-button";
+import { RenumberInvoiceButton } from "./_components/renumber-invoice-button";
 import { NoteEditor } from "./_components/note-editor";
 import { ValidateInvoiceButton } from "./_components/validate-invoice-button";
 import { DatesEditor } from "./_components/dates-editor";
@@ -273,6 +274,13 @@ export default async function FactureDetailPage({
                 Émettre un avoir
               </Button>
             </Link>
+          )}
+          {invoice.status !== "BROUILLON" && (
+            <RenumberInvoiceButton
+              invoiceId={invoice.id}
+              societyId={societyId}
+              currentNumber={invoice.invoiceNumber}
+            />
           )}
           {invoice.invoiceType === "AVOIR" && ["VALIDEE", "EN_ATTENTE", "ENVOYEE"].includes(invoice.status) && (
             <SettleAvoirButton invoiceId={invoice.id} societyId={societyId} />
