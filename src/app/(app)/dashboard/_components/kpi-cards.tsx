@@ -214,8 +214,8 @@ export function KpiCards({ kpis }: { kpis: KpiData }) {
               }}
             >
               <Calendar className="h-3 w-3" />
-              {kpis.expiringLeaseCount} bail
-              {kpis.expiringLeaseCount > 1 ? "x" : ""} expire bientôt
+              {kpis.expiringLeaseCount}{" "}
+              {kpis.expiringLeaseCount > 1 ? "baux expirent" : "bail expire"} bientôt
             </span>
           ) : (
             <span className="text-[10px] text-muted-foreground">aucun bail expirant</span>
