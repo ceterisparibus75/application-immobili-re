@@ -224,6 +224,119 @@ describe("letterEntries", () => {
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/Impossible de generer/);
   });
+
+  it("refuse un lettrage avec écart si allowImbalance n'est pas activé", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValueOnce([
+      makeLine({ debit: 1000, credit: 0 }),
+      makeLine({ id: LINE_ID_2, debit: 0, credit: 998 }),
+    ] as never);
+
+    const result = await letterEntries(SOCIETY_ID, {
+      lineIds: [LINE_ID_1, LINE_ID_2],
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/Desequilibre/);
+  });
+
+  it("refuse un lettrage avec écart si allowImbalance est activé mais sans motif", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    // La validation Zod rejette avant la requête BDD.
+    const result = await letterEntries(SOCIETY_ID, {
+      lineIds: [LINE_ID_1, LINE_ID_2],
+      allowImbalance: true,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/motif/i);
+  });
+
+  it("lettre avec écart et crée l'OD 658000 côté débit excédentaire", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    const COUNTERPART_LINE_ID = "clh3x2z4k0099qh8g7z1y2v3z";
+    prismaMock.journalEntryLine.findMany.mockResolvedValueOnce([
+      {
+        ...makeLine({ debit: 1000, credit: 0 }),
+        journalEntry: { entryDate: new Date("2026-03-01") },
+      },
+      {
+        ...makeLine({ id: LINE_ID_2, debit: 0, credit: 998 }),
+        journalEntry: { entryDate: new Date("2026-03-05") },
+      },
+    ] as never);
+    prismaMock.$queryRaw.mockResolvedValue([{ nextLetteringSequence: 2 }] as never);
+    // Transaction : upsert account + create journal entry
+    prismaMock.accountingAccount.upsert.mockResolvedValue({ id: "acc-658" } as never);
+    prismaMock.journalEntry.create.mockResolvedValue({
+      id: "entry-adj",
+      lines: [{ id: COUNTERPART_LINE_ID }],
+    } as never);
+    prismaMock.journalEntryLine.updateMany.mockResolvedValue({ count: 3 } as never);
+    // requireOpenFiscalYearIdForDate utilise fiscalYear.findFirst
+    prismaMock.fiscalYear.findFirst.mockResolvedValue({
+      id: "fy-1",
+      isClosed: false,
+    } as never);
+
+    const result = await letterEntries(SOCIETY_ID, {
+      lineIds: [LINE_ID_1, LINE_ID_2],
+      allowImbalance: true,
+      imbalanceReason: "Écart d'arrondi sur facture",
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.data?.letteringCode).toBe("AA");
+    expect(result.data?.adjustmentEntryId).toBe("entry-adj");
+
+    // Compte 658000 upserté (débit excédentaire → charge).
+    expect(prismaMock.accountingAccount.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { societyId_code: { societyId: SOCIETY_ID, code: "658000" } },
+      })
+    );
+    // Les 3 lignes (2 originales + contrepartie) sont lettrées.
+    expect(prismaMock.journalEntryLine.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: [LINE_ID_1, LINE_ID_2, COUNTERPART_LINE_ID] } },
+      })
+    );
+  });
+
+  it("lettre avec écart et crée l'OD 758000 côté crédit excédentaire", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.journalEntryLine.findMany.mockResolvedValueOnce([
+      {
+        ...makeLine({ debit: 998, credit: 0 }),
+        journalEntry: { entryDate: new Date("2026-03-01") },
+      },
+      {
+        ...makeLine({ id: LINE_ID_2, debit: 0, credit: 1000 }),
+        journalEntry: { entryDate: new Date("2026-03-05") },
+      },
+    ] as never);
+    prismaMock.$queryRaw.mockResolvedValue([{ nextLetteringSequence: 2 }] as never);
+    prismaMock.accountingAccount.upsert.mockResolvedValue({ id: "acc-758" } as never);
+    prismaMock.journalEntry.create.mockResolvedValue({
+      id: "entry-adj-2",
+      lines: [{ id: "counterpart-2" }],
+    } as never);
+    prismaMock.journalEntryLine.updateMany.mockResolvedValue({ count: 3 } as never);
+    prismaMock.fiscalYear.findFirst.mockResolvedValue({ id: "fy-1", isClosed: false } as never);
+
+    const result = await letterEntries(SOCIETY_ID, {
+      lineIds: [LINE_ID_1, LINE_ID_2],
+      allowImbalance: true,
+      imbalanceReason: "Escompte client accordé",
+    });
+
+    expect(result.success).toBe(true);
+    expect(prismaMock.accountingAccount.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { societyId_code: { societyId: SOCIETY_ID, code: "758000" } },
+      })
+    );
+  });
 });
 
 describe("unletterEntries", () => {

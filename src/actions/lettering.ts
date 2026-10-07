@@ -19,6 +19,11 @@ import {
 // Helper pur déplacé dans src/lib/ car Next.js 16 interdit les exports
 // non-async dans un fichier "use server".
 import { sequenceToLetteringCode } from "@/lib/lettering-codes";
+import {
+  ClosedFiscalYearError,
+  NoOpenFiscalYearError,
+  requireOpenFiscalYearIdForDate,
+} from "@/lib/accounting-period";
 
 export type LetteredGroup = {
   letteringCode: string;
@@ -287,19 +292,43 @@ export async function getNextLetteringCode(
     return { success: false, error: "Erreur lors de la generation du code de lettrage" };
   }
 }
+export type LetterEntriesPayload =
+  | string[]
+  | {
+      lineIds: string[];
+      allowImbalance?: boolean;
+      imbalanceReason?: string;
+    };
+
 /**
  * Lettre un groupe de lignes d ecritures comptables.
  * Verifie que la somme des debits = somme des credits avant de lettrer.
+ *
+ * Si `allowImbalance === true` est passé avec un `imbalanceReason` non vide,
+ * un lettrage avec écart est autorisé. On crée alors une OD de régularisation
+ * sur le compte 658000 (perte si débit > crédit) ou 758000 (produit si crédit
+ * > débit), la contrepartie étant posée sur le compte lettré et incluse dans
+ * le groupe.
  */
 export async function letterEntries(
   societyId: string,
-  lineIds: string[]
-): Promise<ActionResult<{ letteringCode: string }>> {
+  payload: LetterEntriesPayload
+): Promise<ActionResult<{ letteringCode: string; adjustmentEntryId?: string }>> {
   try {
     const context = await requireSocietyActionContext(societyId, "COMPTABLE");
 
+    // Normalisation : accepte l'ancien format (array d'IDs) ou le nouveau
+    // (objet) pour ne pas casser les appelants existants.
+    const normalized = Array.isArray(payload)
+      ? { lineIds: payload, allowImbalance: false, imbalanceReason: undefined }
+      : {
+          lineIds: payload.lineIds,
+          allowImbalance: payload.allowImbalance ?? false,
+          imbalanceReason: payload.imbalanceReason,
+        };
+
     // Validation Zod
-    const parsed = letterEntriesSchema.safeParse({ lineIds });
+    const parsed = letterEntriesSchema.safeParse(normalized);
     if (!parsed.success) {
       return {
         success: false,
@@ -320,6 +349,9 @@ export async function letterEntries(
         letteringCode: true,
         lettrage: true,
         accountId: true,
+        journalEntry: {
+          select: { entryDate: true },
+        },
       },
     });
 
@@ -347,11 +379,14 @@ export async function letterEntries(
         error: "Le lettrage doit porter sur des lignes du même compte comptable.",
       };
     }
+    const letteredAccountId = lines[0].accountId;
 
     // Verifier l equilibre debit = credit
-    const totalDebit = lines.reduce((sum, l) => sum + l.debit, 0);
-    const totalCredit = lines.reduce((sum, l) => sum + l.credit, 0);
-    if (Math.abs(totalDebit - totalCredit) > 0.01) {
+    const totalDebit = roundCents(lines.reduce((sum, l) => sum + l.debit, 0));
+    const totalCredit = roundCents(lines.reduce((sum, l) => sum + l.credit, 0));
+    const imbalance = roundCents(totalDebit - totalCredit);
+
+    if (Math.abs(imbalance) > 0.01 && !parsed.data.allowImbalance) {
       return {
         success: false,
         error: `Desequilibre : total debit (${totalDebit.toFixed(2)}) != total credit (${totalCredit.toFixed(2)}). Le lettrage exige un equilibre parfait.`,
@@ -366,9 +401,114 @@ export async function letterEntries(
     const code = codeResult.data.code;
     const now = new Date();
 
-    // Appliquer le lettrage
+    // Lettrage avec écart : on crée une OD de régularisation dans une
+    // transaction, on y ajoute la contrepartie côté compte lettré, puis on
+    // lettre l'ensemble.
+    let adjustmentEntryId: string | undefined;
+    const needsAdjustment = Math.abs(imbalance) > 0.01 && parsed.data.allowImbalance;
+    const idsToLetter = [...parsed.data.lineIds];
+
+    if (needsAdjustment) {
+      try {
+        const adjustmentResult = await prisma.$transaction(async (tx) => {
+          // Date d'écriture : la plus tardive des lignes lettrées (reste dans
+          // la période où le lettrage a du sens).
+          const lastEntryDate = lines.reduce(
+            (max, line) =>
+              line.journalEntry.entryDate > max ? line.journalEntry.entryDate : max,
+            lines[0].journalEntry.entryDate
+          );
+          const fiscalYearId = await requireOpenFiscalYearIdForDate(
+            tx,
+            societyId,
+            lastEntryDate
+          );
+
+          // imbalance > 0 : total debit excède crédit → l'écart se solde en
+          // posant un crédit sur le compte lettré et un débit sur 658 (perte).
+          // imbalance < 0 : inverse, débit sur le compte lettré et crédit sur
+          // 758 (produit).
+          const absImbalance = roundCents(Math.abs(imbalance));
+          const isDebitExcess = imbalance > 0;
+          const adjustmentAccountCode = isDebitExcess ? "658000" : "758000";
+          const adjustmentAccountLabel = isDebitExcess
+            ? "Écarts de lettrage - charges"
+            : "Écarts de lettrage - produits";
+          const adjustmentAccountType = isDebitExcess ? "6" : "7";
+
+          const adjustmentAccount = await tx.accountingAccount.upsert({
+            where: {
+              societyId_code: { societyId, code: adjustmentAccountCode },
+            },
+            update: { isActive: true },
+            create: {
+              societyId,
+              code: adjustmentAccountCode,
+              label: adjustmentAccountLabel,
+              type: adjustmentAccountType,
+              isActive: true,
+            },
+            select: { id: true },
+          });
+
+          const reasonLabel = parsed.data.imbalanceReason?.trim() ?? "Écart de lettrage";
+          const entry = await tx.journalEntry.create({
+            data: {
+              societyId,
+              fiscalYearId,
+              journalType: "OD",
+              entryDate: lastEntryDate,
+              piece: `ECART-${code}`,
+              label: `Ecart de lettrage ${code} - ${reasonLabel}`.slice(0, 255),
+              reference: `lettering-imbalance:${code}`,
+              status: "BROUILLON",
+              lines: {
+                create: [
+                  {
+                    accountId: letteredAccountId,
+                    debit: isDebitExcess ? 0 : absImbalance,
+                    credit: isDebitExcess ? absImbalance : 0,
+                    label: `Ecart de lettrage ${code}`,
+                  },
+                  {
+                    accountId: adjustmentAccount.id,
+                    debit: isDebitExcess ? absImbalance : 0,
+                    credit: isDebitExcess ? 0 : absImbalance,
+                    label: reasonLabel,
+                  },
+                ],
+              },
+            },
+            select: {
+              id: true,
+              lines: {
+                where: { accountId: letteredAccountId },
+                select: { id: true },
+              },
+            },
+          });
+
+          // On lettre immédiatement la contrepartie sur le compte lettré.
+          const counterpartLineId = entry.lines[0]?.id;
+          return { entryId: entry.id, counterpartLineId };
+        });
+
+        adjustmentEntryId = adjustmentResult.entryId;
+        if (adjustmentResult.counterpartLineId) {
+          idsToLetter.push(adjustmentResult.counterpartLineId);
+        }
+      } catch (error) {
+        if (error instanceof NoOpenFiscalYearError || error instanceof ClosedFiscalYearError) {
+          return { success: false, error: error.message };
+        }
+        throw error;
+      }
+    }
+
+    // Appliquer le lettrage (lignes d'origine + éventuelle contrepartie
+    // d'ajustement).
     await prisma.journalEntryLine.updateMany({
-      where: { id: { in: parsed.data.lineIds } },
+      where: { id: { in: idsToLetter } },
       data: {
         letteringCode: code,
         lettrage: code,
@@ -384,16 +524,22 @@ export async function letterEntries(
       entity: "JournalEntryLine",
       entityId: code,
       details: {
-        operation: "lettrage",
+        operation: needsAdjustment ? "lettrage_avec_ecart" : "lettrage",
         letteringCode: code,
-        lineCount: lines.length,
+        lineCount: idsToLetter.length,
         totalDebit,
         totalCredit,
+        imbalance: needsAdjustment ? imbalance : 0,
+        imbalanceReason: needsAdjustment ? parsed.data.imbalanceReason : undefined,
+        adjustmentEntryId,
       },
     });
 
     revalidatePath("/comptabilite");
-    return { success: true, data: { letteringCode: code } };
+    return {
+      success: true,
+      data: { letteringCode: code, adjustmentEntryId },
+    };
   } catch (error) {
     if (error instanceof UnauthenticatedActionError) {
       return { success: false, error: "Non authentifie" };

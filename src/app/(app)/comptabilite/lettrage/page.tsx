@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { useSociety } from "@/providers/society-provider";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -46,6 +47,8 @@ export default function LetteringPage() {
   const [suggestions, setSuggestions] = useState<LetteringSuggestion[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [requestedAccountId, setRequestedAccountId] = useState<string | null>();
+  const [allowImbalance, setAllowImbalance] = useState(false);
+  const [imbalanceReason, setImbalanceReason] = useState("");
 
   useEffect(() => {
     setRequestedAccountId(new URLSearchParams(window.location.search).get("accountId"));
@@ -127,10 +130,31 @@ export default function LetteringPage() {
       return;
     }
 
+    const hasImbalance = difference > 0.01;
+    if (hasImbalance && !allowImbalance) {
+      toast.error("Cochez « Accepter un écart » pour lettrer un groupe déséquilibré");
+      return;
+    }
+    const trimmedReason = imbalanceReason.trim();
+    if (hasImbalance && allowImbalance && trimmedReason.length === 0) {
+      toast.error("Un motif est obligatoire pour lettrer avec un écart");
+      return;
+    }
+
     startTransition(async () => {
-      const result = await letterEntries(activeSociety.id, selected);
+      const result = await letterEntries(activeSociety.id, {
+        lineIds: selected,
+        allowImbalance: hasImbalance && allowImbalance,
+        imbalanceReason: hasImbalance && allowImbalance ? trimmedReason : undefined,
+      });
       if (result.success) {
-        toast.success(`Lettrage ${result.data?.letteringCode ?? ""} créé`);
+        toast.success(
+          hasImbalance
+            ? `Lettrage ${result.data?.letteringCode ?? ""} créé avec écart justifié`
+            : `Lettrage ${result.data?.letteringCode ?? ""} créé`
+        );
+        setAllowImbalance(false);
+        setImbalanceReason("");
         load(accountId);
       } else {
         toast.error(result.error ?? "Erreur lors du lettrage");
@@ -141,7 +165,7 @@ export default function LetteringPage() {
   function handleLetterSuggestion(suggestion: LetteringSuggestion) {
     if (!activeSociety?.id) return;
     startTransition(async () => {
-      const result = await letterEntries(activeSociety.id, suggestion.lineIds);
+      const result = await letterEntries(activeSociety.id, { lineIds: suggestion.lineIds });
       if (result.success) {
         toast.success(`Lettrage ${result.data?.letteringCode ?? ""} créé`);
         load(accountId);
@@ -168,7 +192,13 @@ export default function LetteringPage() {
   const totalDebit = selectedLines.reduce((sum, line) => sum + line.debit, 0);
   const totalCredit = selectedLines.reduce((sum, line) => sum + line.credit, 0);
   const difference = Math.round(Math.abs(totalDebit - totalCredit) * 100) / 100;
-  const canLetter = selected.length >= 2 && difference <= 0.01;
+  const signedDifference = Math.round((totalDebit - totalCredit) * 100) / 100;
+  const trimmedReason = imbalanceReason.trim();
+  const isBalanced = difference <= 0.01;
+  const canLetter =
+    selected.length >= 2 &&
+    (isBalanced || (allowImbalance && trimmedReason.length > 0));
+  const willLetterWithImbalance = selected.length >= 2 && !isBalanced && allowImbalance && trimmedReason.length > 0;
 
   return (
     <div className="space-y-6">
@@ -216,13 +246,53 @@ export default function LetteringPage() {
             <p className="text-xs text-muted-foreground">Écart</p>
             <div className="mt-2 flex items-center justify-between gap-2">
               <p className="text-2xl font-bold">{formatCurrency(difference)}</p>
-              <Badge variant={canLetter ? "default" : "secondary"}>
-                {canLetter ? "Équilibré" : "À équilibrer"}
+              <Badge variant={isBalanced ? "default" : "secondary"}>
+                {isBalanced ? "Équilibré" : "À équilibrer"}
               </Badge>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {selected.length >= 2 && !isBalanced && (
+        <Card className="border-amber-300/70 bg-amber-50/60 dark:border-amber-800/60 dark:bg-amber-950/30">
+          <CardContent className="space-y-3 pt-6">
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={allowImbalance}
+                onChange={(event) => setAllowImbalance(event.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-input accent-amber-600"
+              />
+              <span>
+                <span className="font-medium">Accepter un écart de {formatCurrency(difference)}</span>
+                <br />
+                <span className="text-xs text-muted-foreground">
+                  Une OD sera créée sur le compte {signedDifference > 0 ? "658000 (perte)" : "758000 (produit)"}{" "}
+                  pour solder le groupe. Rôle réservé aux arrondis, écarts de change ou escomptes.
+                </span>
+              </span>
+            </label>
+            {allowImbalance && (
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-foreground" htmlFor="imbalance-reason">
+                  Motif de l&apos;écart (obligatoire, 200 car. max.)
+                </label>
+                <Textarea
+                  id="imbalance-reason"
+                  value={imbalanceReason}
+                  onChange={(event) => setImbalanceReason(event.target.value.slice(0, 200))}
+                  placeholder="Ex: Écart de change EUR/USD, escompte accordé, arrondi facture…"
+                  className="min-h-16 text-sm"
+                />
+                <div className="text-right text-xs text-muted-foreground">
+                  {trimmedReason.length}/200
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {suggestions.length > 0 && (
         <Card>
@@ -281,9 +351,14 @@ export default function LetteringPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">Lignes non lettrées</CardTitle>
-          <Button onClick={handleLetter} disabled={isPending || !canLetter}>
+          <Button
+            onClick={handleLetter}
+            disabled={isPending || !canLetter}
+            variant={willLetterWithImbalance ? "destructive" : "default"}
+            title={willLetterWithImbalance ? "Lettrer en acceptant l'écart documenté" : undefined}
+          >
             <Link2 className="h-4 w-4" />
-            Lettrer
+            {willLetterWithImbalance ? "Lettrer avec écart" : "Lettrer"}
           </Button>
         </CardHeader>
         <CardContent className="p-0">

@@ -12,6 +12,10 @@ import {
   UnauthenticatedActionError,
 } from "@/lib/action-society";
 import type { AccountReviewStatus } from "@/generated/prisma/client";
+import {
+  detectAccountAnomalies,
+  type AccountAnomaly,
+} from "@/lib/account-anomalies";
 
 export type AccountReviewCycle =
   | "Trésorerie"
@@ -335,5 +339,101 @@ export async function updateAccountReview(
     if (error instanceof ForbiddenError) return { success: false, error: error.message };
     console.error("[updateAccountReview]", error);
     return { success: false, error: "Erreur lors de la mise à jour de la révision" };
+  }
+}
+
+const accountAnomaliesSchema = z.object({
+  accountId: z.string().cuid(),
+  fiscalYearId: z.string().cuid(),
+});
+
+/**
+ * Retourne la liste des anomalies détectées sur un compte pour un exercice.
+ * Alimente le dialog de détails ouvert depuis le badge « N anomalies »
+ * dans la page de révision. Chargé en lazy côté client.
+ */
+export async function getAccountAnomalies(
+  societyId: string,
+  accountId: string,
+  fiscalYearId: string
+): Promise<ActionResult<{ anomalies: AccountAnomaly[] }>> {
+  try {
+    await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const parsed = accountAnomaliesSchema.safeParse({ accountId, fiscalYearId });
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.map((error) => error.message).join(", "),
+      };
+    }
+
+    const anomalies = await detectAccountAnomalies(
+      societyId,
+      parsed.data.accountId,
+      parsed.data.fiscalYearId
+    );
+
+    return { success: true, data: { anomalies } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[getAccountAnomalies]", error);
+    return { success: false, error: "Erreur lors de la détection des anomalies" };
+  }
+}
+
+const accountsAnomalyCountsSchema = z.object({
+  fiscalYearId: z.string().cuid(),
+  accountIds: z.array(z.string().cuid()).max(500),
+});
+
+/**
+ * Retourne un comptage d'anomalies par compte (clé = accountId). Permet au
+ * tableau de révision d'afficher le badge « N anomalies » sans faire N
+ * round-trips. Chaque compte est détecté en parallèle, borné à 500 comptes
+ * (au-delà la révision est de toute façon ingérable).
+ */
+export async function getAccountsAnomalyCounts(
+  societyId: string,
+  input: z.infer<typeof accountsAnomalyCountsSchema>
+): Promise<ActionResult<{ counts: Record<string, number> }>> {
+  try {
+    await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const parsed = accountsAnomalyCountsSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.errors.map((error) => error.message).join(", "),
+      };
+    }
+
+    if (parsed.data.accountIds.length === 0) {
+      return { success: true, data: { counts: {} } };
+    }
+
+    const results = await Promise.all(
+      parsed.data.accountIds.map(async (accountId) => {
+        const anomalies = await detectAccountAnomalies(
+          societyId,
+          accountId,
+          parsed.data.fiscalYearId
+        );
+        return [accountId, anomalies.length] as const;
+      })
+    );
+
+    const counts: Record<string, number> = {};
+    for (const [accountId, count] of results) {
+      if (count > 0) counts[accountId] = count;
+    }
+
+    return { success: true, data: { counts } };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[getAccountsAnomalyCounts]", error);
+    return { success: false, error: "Erreur lors du calcul des anomalies" };
   }
 }

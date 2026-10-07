@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import {
   getAccountReviewBoard,
+  getAccountsAnomalyCounts,
   updateAccountReview,
   type AccountReviewBoard,
   type AccountReviewRow,
@@ -19,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useSociety } from "@/providers/society-provider";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { filterAccountReviewRows } from "@/lib/account-review-utils";
+import { AnomalyCell } from "./_components/anomaly-cell";
 
 const STATUS_OPTIONS = [
   { value: "TODO", label: "À justifier" },
@@ -54,6 +56,8 @@ export default function AccountRevisionPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [showEmptyAccounts, setShowEmptyAccounts] = useState(false);
   const [cycle, setCycle] = useState("all");
+  const [anomalyCounts, setAnomalyCounts] = useState<Record<string, number>>({});
+  const [anomalyLoading, setAnomalyLoading] = useState(false);
 
   useEffect(() => {
     if (!activeSociety?.id) return;
@@ -72,10 +76,37 @@ export default function AccountRevisionPage() {
       if (result.success && result.data) {
         setBoard(result.data);
         setNotes(Object.fromEntries(result.data.rows.map((row) => [row.accountId, row.note ?? ""])));
+        void loadAnomalyCounts(nextFiscalYearId, result.data.rows);
       } else {
         toast.error(result.error ?? "Erreur lors du chargement de la révision");
       }
     });
+  }
+
+  async function loadAnomalyCounts(nextFiscalYearId: string, rows: AccountReviewRow[]) {
+    if (!activeSociety?.id) return;
+    // Seuls les comptes mouvementés méritent une détection — un compte sans
+    // activité ne produit aucune anomalie, inutile de payer la requête.
+    const accountIds = rows
+      .filter((row) => Math.abs(row.totalDebit) > 0.01 || Math.abs(row.totalCredit) > 0.01)
+      .map((row) => row.accountId);
+    if (accountIds.length === 0) {
+      setAnomalyCounts({});
+      return;
+    }
+    setAnomalyLoading(true);
+    setAnomalyCounts({});
+    try {
+      const result = await getAccountsAnomalyCounts(activeSociety.id, {
+        fiscalYearId: nextFiscalYearId,
+        accountIds,
+      });
+      if (result.success && result.data) {
+        setAnomalyCounts(result.data.counts);
+      }
+    } finally {
+      setAnomalyLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -225,6 +256,7 @@ export default function AccountRevisionPage() {
                       <TableHead className="w-36">Cycle</TableHead>
                       <TableHead>Intitulé</TableHead>
                       <TableHead className="text-right">Solde</TableHead>
+                      <TableHead className="w-40">Anomalies</TableHead>
                       <TableHead className="w-36">Statut</TableHead>
                       <TableHead className="min-w-72">Note</TableHead>
                       <TableHead className="w-28 text-right">Action</TableHead>
@@ -233,7 +265,7 @@ export default function AccountRevisionPage() {
                   <TableBody>
                     {visibleRows.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                        <TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
                           Aucun compte mouvementé sur cet exercice
                         </TableCell>
                       </TableRow>
@@ -251,6 +283,22 @@ export default function AccountRevisionPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-right font-mono">{formatCurrency(row.balance)}</TableCell>
+                        <TableCell>
+                          {activeSociety?.id && (
+                            anomalyLoading && anomalyCounts[row.accountId] === undefined ? (
+                              <span className="text-xs text-muted-foreground">Analyse…</span>
+                            ) : (
+                              <AnomalyCell
+                                societyId={activeSociety.id}
+                                accountId={row.accountId}
+                                accountCode={row.code}
+                                accountLabel={row.label}
+                                fiscalYearId={fiscalYearId}
+                                initialCount={anomalyCounts[row.accountId] ?? 0}
+                              />
+                            )
+                          )}
+                        </TableCell>
                         <TableCell>
                           <div className="space-y-2">
                             <Badge variant={STATUS_BADGES[row.status]}>
