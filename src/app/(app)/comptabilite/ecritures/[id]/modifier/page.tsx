@@ -56,7 +56,9 @@ export default async function EditJournalEntryPage({
         entryDate: toInputDate(entry.entryDate),
         piece: entry.piece ?? "",
         label: entry.label,
-        fiscalYearId: entry.fiscalYearId ?? "none",
+        // fiscalYearId est garanti NOT NULL depuis la migration
+        // 20261007230000_journal_entry_fiscal_year_not_null — plus de fallback.
+        fiscalYearId: entry.fiscalYearId,
         documentId: entry.documentId ?? "none",
         lines: entry.lines.map((line) => ({
           id: line.id,
