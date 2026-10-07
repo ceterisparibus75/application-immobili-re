@@ -15,6 +15,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFoo
 import { Plus, Trash2, AlertTriangle, CheckCircle2, PenLine, Scale } from "lucide-react";
 import { toast } from "sonner";
 import { ACCOUNTING_JOURNAL_LABELS, CANONICAL_ACCOUNTING_JOURNAL_TYPES } from "@/lib/accounting-journals";
+import {
+  JOURNAL_ENTRY_TEMPLATES,
+  getJournalEntryTemplate,
+  roundToCents,
+  type JournalEntryTemplate,
+} from "@/lib/journal-entry-templates";
+import Link from "next/link";
 
 const JOURNALS = CANONICAL_ACCOUNTING_JOURNAL_TYPES.map((value) => ({
   value,
@@ -43,6 +50,9 @@ export default function NouvelleEcriturePage() {
   const [fiscalYearId, setFiscalYearId] = useState("none");
   const [documentId, setDocumentId] = useState("none");
   const [lines, setLines] = useState<Line[]>([newLine(), newLine()]);
+  const [templateId, setTemplateId] = useState<string>("none");
+  const [ttcAmount, setTtcAmount] = useState<string>("");
+  const [missingTemplateCodes, setMissingTemplateCodes] = useState<string[]>([]);
 
   useEffect(() => {
     if (!activeSociety?.id) return;
@@ -75,6 +85,58 @@ export default function NouvelleEcriturePage() {
   function removeLine(id: string) {
     if (lines.length <= 2) return;
     setLines(ls => ls.filter(l => l.id !== id));
+  }
+
+  /**
+   * Construit la liste des lignes à partir d'un template + montant TTC.
+   * Si un code PCG référencé par le template n'existe pas dans la société,
+   * on le signale (warning UI) et on crée tout de même la ligne avec un
+   * accountId vide — l'utilisateur devra choisir manuellement un compte
+   * ou créer le compte manquant via /comptabilite/plan-comptable.
+   */
+  function buildLinesFromTemplate(template: JournalEntryTemplate, ttc: number): { lines: Line[]; missing: string[] } {
+    const missing: string[] = [];
+    const builtLines: Line[] = template.lines.map((templateLine) => {
+      const account = accounts.find((a) => a.code === templateLine.accountCode);
+      if (!account && !missing.includes(templateLine.accountCode)) {
+        missing.push(templateLine.accountCode);
+      }
+      const debit = ttc > 0 && templateLine.debitRatio > 0 ? roundToCents(ttc * templateLine.debitRatio) : 0;
+      const credit = ttc > 0 && templateLine.creditRatio > 0 ? roundToCents(ttc * templateLine.creditRatio) : 0;
+      return {
+        id: Math.random().toString(36).slice(2),
+        accountId: account?.id ?? "",
+        label: templateLine.label,
+        debit: debit > 0 ? debit.toFixed(2) : "",
+        credit: credit > 0 ? credit.toFixed(2) : "",
+      };
+    });
+    return { lines: builtLines, missing };
+  }
+
+  function handleTemplateChange(nextTemplateId: string) {
+    setTemplateId(nextTemplateId);
+    if (nextTemplateId === "none") {
+      setMissingTemplateCodes([]);
+      return;
+    }
+    const template = getJournalEntryTemplate(nextTemplateId);
+    if (!template) return;
+    setJournal(template.journalType);
+    const ttc = parseFloat(ttcAmount) || 0;
+    const { lines: nextLines, missing } = buildLinesFromTemplate(template, ttc);
+    setLines(nextLines);
+    setMissingTemplateCodes(missing);
+  }
+
+  function handleTtcChange(value: string) {
+    setTtcAmount(value);
+    const template = getJournalEntryTemplate(templateId);
+    if (!template) return;
+    const ttc = parseFloat(value) || 0;
+    const { lines: nextLines, missing } = buildLinesFromTemplate(template, ttc);
+    setLines(nextLines);
+    setMissingTemplateCodes(missing);
   }
 
   function handleBalance() {
@@ -136,6 +198,47 @@ export default function NouvelleEcriturePage() {
         <PenLine className="h-6 w-6 text-primary" />
         <h1 className="text-2xl font-semibold">Nouvelle écriture comptable</h1>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Modèle (optionnel)</CardTitle></CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="md:col-span-2">
+            <Label>Charger un modèle</Label>
+            <select value={templateId} onChange={(e) => handleTemplateChange(e.target.value)} className={selectClass}>
+              <option value="none">Aucun — saisie libre</option>
+              {JOURNAL_ENTRY_TEMPLATES.map((t) => (
+                <option key={t.id} value={t.id}>{t.label}</option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground mt-1">
+              Pré-remplit le journal et les lignes. Saisissez le TTC pour calculer les montants.
+            </p>
+          </div>
+          <div>
+            <Label>Montant TTC (€)</Label>
+            <Input
+              type="number"
+              min="0"
+              step="0.01"
+              value={ttcAmount}
+              onChange={(e) => handleTtcChange(e.target.value)}
+              placeholder="0,00"
+              disabled={templateId === "none"}
+              className="text-right font-mono"
+            />
+          </div>
+          {missingTemplateCodes.length > 0 && (
+            <div className="md:col-span-3 flex items-start gap-2 p-3 rounded-md border border-[var(--color-status-caution)]/40 bg-[var(--color-status-caution-bg)] text-sm text-[var(--color-status-caution)]">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                Compte(s) <strong>{missingTemplateCodes.join(", ")}</strong> absent(s) de votre plan comptable. Créez-les d&apos;abord via{" "}
+                <Link href="/comptabilite/plan-comptable" className="underline">/comptabilite/plan-comptable</Link>
+                {" "}ou sélectionnez un compte équivalent dans chaque ligne.
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle className="text-base">En-tête de l’écriture</CardTitle></CardHeader>

@@ -44,7 +44,21 @@ export default async function ComptabilitePage() {
     return null;
   }
 
-  const [entries, draftEntries, accountCount, fiscalYear, stats, documents] = await Promise.all([
+  // Seuil pour détecter les exercices "stale" : terminés depuis plus de 90 jours
+  // sans être clôturés. Utilisé pour l'alerte orange en tête de dashboard.
+  const staleFiscalYearThreshold = new Date();
+  staleFiscalYearThreshold.setDate(staleFiscalYearThreshold.getDate() - 90);
+
+  const [
+    entries,
+    draftEntries,
+    accountCount,
+    fiscalYear,
+    stats,
+    documents,
+    openBalanceTotals,
+    staleFiscalYearCount,
+  ] = await Promise.all([
     prisma.journalEntry.findMany({
       where: { societyId },
       include: {
@@ -81,7 +95,32 @@ export default async function ComptabilitePage() {
       orderBy: { createdAt: "desc" },
       take: 200,
     }),
+    // Balance des exercices non clôturés : somme débit/crédit sur toutes les
+    // lignes rattachées à un JournalEntry dont le FiscalYear est ouvert.
+    // Indexé via @@index([societyId, fiscalYearId]) sur JournalEntry.
+    prisma.journalEntryLine.aggregate({
+      _sum: { debit: true, credit: true },
+      where: {
+        journalEntry: {
+          societyId,
+          fiscalYear: { isClosed: false },
+        },
+      },
+    }),
+    // Exercices terminés il y a plus de 90 jours mais toujours non clôturés.
+    prisma.fiscalYear.count({
+      where: {
+        societyId,
+        isClosed: false,
+        endDate: { lt: staleFiscalYearThreshold },
+      },
+    }),
   ]);
+
+  const openBalanceDebit = openBalanceTotals._sum.debit ?? 0;
+  const openBalanceCredit = openBalanceTotals._sum.credit ?? 0;
+  const openBalanceDelta = openBalanceDebit - openBalanceCredit;
+  const openBalanceUnbalanced = Math.abs(openBalanceDelta) > 0.01;
 
   const brouillonCount = stats.find(s => s.status === "BROUILLON")?._count.id ?? 0;
   const valideeCount = stats.find(s => s.status === "VALIDEE")?._count.id ?? 0;
@@ -124,6 +163,38 @@ export default async function ComptabilitePage() {
           </Link>
         </Button>
       </div>
+
+      {/* Alertes critiques — visibles en tête de page */}
+      {(openBalanceUnbalanced || staleFiscalYearCount > 0) && (
+        <div className="space-y-2">
+          {openBalanceUnbalanced && (
+            <div className="flex items-start gap-3 p-3 rounded-lg border border-[var(--color-status-negative)]/40 bg-[var(--color-status-negative-bg)] text-sm text-[var(--color-status-negative)]">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <strong>Balance de l&apos;exercice en cours : déséquilibre de {formatCurrency(Math.abs(openBalanceDelta))}</strong>
+                {" — vérifier les écritures."}
+                <div className="text-xs mt-1 opacity-80">
+                  Total débit {formatCurrency(openBalanceDebit)} / Total crédit {formatCurrency(openBalanceCredit)}.
+                </div>
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/comptabilite/balance">Voir la balance</Link>
+              </Button>
+            </div>
+          )}
+          {staleFiscalYearCount > 0 && (
+            <div className="flex items-start gap-3 p-3 rounded-lg border border-[var(--color-status-caution)]/40 bg-[var(--color-status-caution-bg)] text-sm text-[var(--color-status-caution)]">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <strong>{staleFiscalYearCount} exercice(s)</strong> terminé(s) depuis plus de 90 jours à clôturer.
+              </div>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/comptabilite/cloture">Gérer les exercices</Link>
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
