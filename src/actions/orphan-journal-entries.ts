@@ -21,11 +21,11 @@ import { createAuditLog } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { ForbiddenError } from "@/lib/permissions";
 import type { ActionResult } from "@/actions/society";
+import { requireAuthenticatedActionContext } from "@/lib/action-auth";
 import {
-  requireAuthenticatedActionContext,
+  requireSocietyActionContext,
   UnauthenticatedActionError,
-} from "@/lib/action-auth";
-import { requireSocietyActionContext } from "@/lib/action-society";
+} from "@/lib/action-society";
 
 export type OrphanEntry = {
   id: string;
