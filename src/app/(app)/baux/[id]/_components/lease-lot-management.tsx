@@ -196,7 +196,7 @@ export function LeaseLotManagement({
 
     setLoading(false);
     if (result.success) {
-      toast.success("Lot principal mis a jour");
+      toast.success("Lot principal mis à jour");
       setPrimaryTarget(null);
       resetPrimaryForm();
       router.refresh();
@@ -217,7 +217,7 @@ export function LeaseLotManagement({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          {leaseLots.length} lot{leaseLots.length > 1 ? "s" : ""} rattache{leaseLots.length > 1 ? "s" : ""}
+          {leaseLots.length} lot{leaseLots.length > 1 ? "s" : ""} rattaché{leaseLots.length > 1 ? "s" : ""}
         </p>
         {isActive && (
           <Dialog
@@ -238,14 +238,14 @@ export function LeaseLotManagement({
               </DialogHeader>
               <form onSubmit={handleAddLot} className="space-y-4">
                 <div>
-                  <Label>Lot a rattacher</Label>
+                  <Label>Lot à rattacher</Label>
                   {loadingLots ? (
                     <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" /> Chargement...
                     </div>
                   ) : availableLots.length === 0 ? (
                     <p className="py-2 text-sm text-muted-foreground">
-                      Aucun lot vacant disponible dans cette societe.
+                      Aucun lot vacant disponible dans cette société.
                     </p>
                   ) : (
                     <NativeSelect

@@ -31,7 +31,7 @@ export function TicketActions({
     setLoading(true);
     const result = await updateTicket(societyId, { id: ticketId, status: status as "OUVERT" | "EN_COURS" | "EN_ATTENTE" | "RESOLU" | "FERME" });
     if (result.success) {
-      toast.success(`Ticket mis a jour`);
+      toast.success(`Ticket mis à jour`);
       router.refresh();
     } else {
       toast.error(result.error ?? "Erreur");
@@ -43,7 +43,7 @@ export function TicketActions({
     setLoading(true);
     const result = await updateTicket(societyId, { id: ticketId, priority: priority as "BASSE" | "NORMALE" | "HAUTE" | "URGENTE" });
     if (result.success) {
-      toast.success("Priorite mise a jour");
+      toast.success("Priorité mise à jour");
       router.refresh();
     } else {
       toast.error(result.error ?? "Erreur");
@@ -63,7 +63,7 @@ export function TicketActions({
           disabled={loading}
         >
           <CheckCircle2 className="mr-2 h-3 w-3" />
-          Resoudre
+          Résoudre
         </Button>
       )}
 
@@ -84,7 +84,7 @@ export function TicketActions({
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handleStatusChange("RESOLU")}>
             <CheckCircle2 className="mr-2 h-3 w-3" />
-            Resolu
+            Résolu
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -96,16 +96,16 @@ export function TicketActions({
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => handlePriorityChange("BASSE")}>
-            Priorite : Basse
+            Priorité : Basse
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handlePriorityChange("NORMALE")}>
-            Priorite : Normale
+            Priorité : Normale
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handlePriorityChange("HAUTE")}>
-            Priorite : Haute
+            Priorité : Haute
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => handlePriorityChange("URGENTE")}>
-            Priorite : Urgente
+            Priorité : Urgente
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

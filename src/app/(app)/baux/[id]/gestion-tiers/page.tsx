@@ -104,7 +104,7 @@ export default async function GestionTiersPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Periode</TableHead>
+                  <TableHead>Période</TableHead>
                   <TableHead className="text-right">Loyer brut</TableHead>
                   <TableHead className="text-right">Honoraires</TableHead>
                   <TableHead className="text-right">Virement net</TableHead>

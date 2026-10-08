@@ -40,10 +40,10 @@ export function VerificationActions({
     try {
       const result = await verifyManagementStatement(societyId, statementId);
       if (result.success) {
-        toast.success("Verification terminee");
+        toast.success("Vérification terminée");
         router.refresh();
       } else {
-        toast.error(result.error ?? "Erreur lors de la verification");
+        toast.error(result.error ?? "Erreur lors de la vérification");
       }
     } catch {
       toast.error("Erreur inattendue");
@@ -57,7 +57,7 @@ export function VerificationActions({
     try {
       const result = await validateStatement(societyId, statementId);
       if (result.success) {
-        toast.success("Decompte valide");
+        toast.success("Décompte validé");
         router.refresh();
       } else {
         toast.error(result.error ?? "Erreur lors de la validation");
@@ -74,7 +74,7 @@ export function VerificationActions({
     try {
       const result = await markStatementConforme(societyId, statementId);
       if (result.success) {
-        toast.success("Decompte marque conforme");
+        toast.success("Décompte marqué conforme");
         router.refresh();
       } else {
         toast.error(result.error ?? "Erreur");
@@ -91,7 +91,7 @@ export function VerificationActions({
     try {
       const result = await markStatementLitige(societyId, statementId);
       if (result.success) {
-        toast.success("Litige signale");
+        toast.success("Litige signalé");
         router.refresh();
       } else {
         toast.error(result.error ?? "Erreur");
@@ -129,12 +129,12 @@ export function VerificationActions({
             ) : (
               <Search className="h-4 w-4" />
             )}
-            Lancer la verification
+            Lancer la vérification
           </Button>
         </>
       )}
 
-      {/* VALIDE: Lancer la verification */}
+      {/* VALIDE: Lancer la vérification */}
       {status === "VALIDE" && (
         <Button
           onClick={handleVerify}
@@ -145,7 +145,7 @@ export function VerificationActions({
           ) : (
             <Search className="h-4 w-4" />
           )}
-          Lancer la verification
+          Lancer la vérification
         </Button>
       )}
 
@@ -192,7 +192,7 @@ export function VerificationActions({
           ) : (
             <Search className="h-4 w-4" />
           )}
-          Re-verifier
+          Re-vérifier
         </Button>
       )}
     </div>

@@ -27,16 +27,16 @@ import { StatementActions } from "./_components/statement-actions";
 
 const TYPE_LABELS: Record<string, string> = {
   APPEL_FONDS: "Appel de fonds",
-  DECOMPTE_CHARGES: "Decompte annuel",
+  DECOMPTE_CHARGES: "Décompte annuel",
 };
 
 const STATUS_LABELS: Record<StatementStatus, string> = {
   BROUILLON: "Brouillon",
-  VALIDE: "Valide",
-  PAYE: "Paye",
-  PARTIELLEMENT_PAYE: "Partiellement paye",
-  REGULARISE: "Regularise",
-  VERIFIE: "Verifie",
+  VALIDE: "Validé",
+  PAYE: "Payé",
+  PARTIELLEMENT_PAYE: "Partiellement payé",
+  REGULARISE: "Régularisé",
+  VERIFIE: "Vérifié",
   CONFORME: "Conforme",
   LITIGE: "Litige",
 };
@@ -117,11 +117,11 @@ export default async function StatementDetailPage({
           href={`/patrimoine/immeubles/${id}/releves-tiers`}
           className="hover:text-foreground transition-colors"
         >
-          Releves syndic
+          Relevés syndic
         </Link>
         <ChevronRight className="h-3.5 w-3.5" />
         <span className="text-foreground font-medium truncate">
-          {statement.reference ?? TYPE_LABELS[statement.type] ?? "Detail"}
+          {statement.reference ?? TYPE_LABELS[statement.type] ?? "Détail"}
         </span>
       </div>
 
@@ -183,18 +183,18 @@ export default async function StatementDetailPage({
             )}
             <Separator />
             <InfoRow
-              label="Periode"
+              label="Période"
               value={
                 statement.periodLabel ??
                 `${formatDate(statement.periodStart)} au ${formatDate(statement.periodEnd)}`
               }
             />
-            <InfoRow label="Date de reception" value={formatDate(statement.receivedDate)} />
+            <InfoRow label="Date de réception" value={formatDate(statement.receivedDate)} />
             {statement.dueDate && (
-              <InfoRow label="Echeance" value={formatDate(statement.dueDate)} />
+              <InfoRow label="Échéance" value={formatDate(statement.dueDate)} />
             )}
             {statement.reference && (
-              <InfoRow label="Reference" value={statement.reference} />
+              <InfoRow label="Référence" value={statement.reference} />
             )}
           </CardContent>
         </Card>
@@ -212,13 +212,13 @@ export default async function StatementDetailPage({
             </div>
             <Separator />
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Paye</span>
+              <span className="text-muted-foreground">Payé</span>
               <span className="font-semibold tabular-nums text-[var(--color-status-positive)]">
                 {formatCurrency(statement.paidAmount)}
               </span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Reste du</span>
+              <span className="text-muted-foreground">Reste dû</span>
               <span
                 className={`font-semibold tabular-nums ${resteDu > 0 ? "text-[var(--color-status-negative)]" : ""}`}
               >
@@ -233,7 +233,7 @@ export default async function StatementDetailPage({
                   <InfoRow label="Moyen de paiement" value={statement.paymentMethod} />
                 )}
                 {statement.paymentReference && (
-                  <InfoRow label="Reference paiement" value={statement.paymentReference} />
+                  <InfoRow label="Référence paiement" value={statement.paymentReference} />
                 )}
               </>
             )}
@@ -245,19 +245,19 @@ export default async function StatementDetailPage({
       <Card>
         <CardHeader>
           <CardTitle>
-            Lignes de detail ({statement.lines.length})
+            Lignes de détail ({statement.lines.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {statement.lines.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">
-              Aucune ligne de detail
+              Aucune ligne de détail
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Libelle</TableHead>
+                  <TableHead>Libellé</TableHead>
                   <TableHead className="text-right">Montant</TableHead>
                   <TableHead className="text-center">Nature</TableHead>
                 </TableRow>

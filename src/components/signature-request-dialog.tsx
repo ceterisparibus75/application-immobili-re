@@ -75,7 +75,7 @@ export function SignatureRequestDialog({
       });
 
       if (result.success) {
-        toast.success("Demande de signature envoyee avec succes");
+        toast.success("Demande de signature envoyée avec succès");
         setOpen(false);
         onSuccess?.();
       } else {
@@ -92,16 +92,16 @@ export function SignatureRequestDialog({
         {trigger ?? children ?? (
           <Button variant="outline" size="sm">
             <Send className="h-4 w-4" />
-            Envoyer a la signature
+            Envoyer à la signature
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Envoyer a la signature</DialogTitle>
+          <DialogTitle>Envoyer à la signature</DialogTitle>
           <DialogDescription>
-            Le document &quot;{documentName}&quot; sera envoye par email pour
-            signature electronique via DocuSign.
+            Le document &quot;{documentName}&quot; sera envoyé par email pour
+            signature électronique via DocuSign.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

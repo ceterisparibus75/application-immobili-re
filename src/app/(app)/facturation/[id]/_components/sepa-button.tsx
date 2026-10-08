@@ -44,7 +44,7 @@ export function SepaButton({
     });
     setLoading(false);
     if (result.success) {
-      toast.success("Prelevement SEPA declenche");
+      toast.success("Prélèvement SEPA déclenché");
       setOpen(false);
       router.refresh();
     } else {
@@ -62,7 +62,7 @@ export function SepaButton({
       </DialogTrigger>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>Prelevement SEPA</DialogTitle>
+          <DialogTitle>Prélèvement SEPA</DialogTitle>
           <DialogDescription>
             Mandat {mandateRef ?? "—"} (****{ibanLast4 ?? "—"})
           </DialogDescription>
@@ -79,7 +79,7 @@ export function SepaButton({
             />
           </div>
           <div>
-            <Label>Date de prelevement (optionnel)</Label>
+            <Label>Date de prélèvement (optionnel)</Label>
             <Input
               type="date"
               value={chargeDate}
@@ -88,7 +88,7 @@ export function SepaButton({
           </div>
           <Button type="submit" disabled={loading} className="w-full">
             {loading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-            Lancer le prelevement
+            Lancer le prélèvement
           </Button>
         </form>
       </DialogContent>

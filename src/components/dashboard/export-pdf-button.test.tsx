@@ -49,7 +49,7 @@ describe("ExportPdfButton", () => {
 
     render(<ExportPdfButton />);
     fireEvent.click(screen.getByRole("button"));
-    await waitFor(() => expect(mockToast.success).toHaveBeenCalledWith("PDF exporte avec succes"));
+    await waitFor(() => expect(mockToast.success).toHaveBeenCalledWith("PDF exporté avec succès"));
     expect(screen.getByRole("button")).not.toBeDisabled();
     expect(global.URL.createObjectURL).toHaveBeenCalledWith(mockBlob);
     expect(global.URL.revokeObjectURL).toHaveBeenCalledWith("blob:mock-url");

@@ -112,10 +112,10 @@ function DocumentPickerField({
   ];
   return (
     <div>
-      <Label>Lier a un document existant (GED)</Label>
+      <Label>Lier à un document existant (GED)</Label>
       <NativeSelect value={value} onChange={(e) => onChange(e.target.value)} options={options} />
       <p className="mt-1 text-xs text-muted-foreground">
-        Rattache un document deja archive dans la base documentaire du bail.
+        Rattache un document déjà archivé dans la base documentaire du bail.
       </p>
     </div>
   );
@@ -313,7 +313,7 @@ export function LeaseAmendments({
     });
     setLoading(false);
     if (result.success) {
-      toast.success("Avenant cree avec succes");
+      toast.success("Avenant créé avec succès");
       setOpen(false);
       resetForm();
       router.refresh();
@@ -324,7 +324,7 @@ export function LeaseAmendments({
 
   async function handleSignedSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!signedPdfFile) { toast.error("Ajoutez le PDF signe de l'avenant"); return; }
+    if (!signedPdfFile) { toast.error("Ajoutez le PDF signé de l'avenant"); return; }
     if (!effectiveDate || !description) { toast.error("Veuillez remplir les champs obligatoires"); return; }
     setSignedLoading(true);
     const result = await createLeaseAmendment(societyId, {
@@ -343,12 +343,12 @@ export function LeaseAmendments({
     }
     try {
       await uploadSignedAmendmentDocument(signedPdfFile, result.data.amendmentNumber);
-      toast.success("Avenant signe ajoute et archive avec succes");
+      toast.success("Avenant signé ajouté et archivé avec succès");
       setSignedOpen(false);
       resetForm();
       router.refresh();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Avenant cree, mais le PDF signe n'a pas pu etre archive");
+      toast.error(error instanceof Error ? error.message : "Avenant créé, mais le PDF signé n'a pas pu être archivé");
       router.refresh();
     } finally {
       setSignedLoading(false);

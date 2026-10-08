@@ -44,14 +44,14 @@ export function AddToDataroomButton({ societyId, documentId }: { societyId: stri
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-7 w-7" title="Ajouter a une dataroom">
+        <Button variant="ghost" size="icon" className="h-7 w-7" title="Ajouter à une dataroom">
           <Share2 className="h-3.5 w-3.5" />
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Ajouter a une dataroom</DialogTitle>
-          <DialogDescription>Selectionnez la dataroom dans laquelle ajouter ce document.</DialogDescription>
+          <DialogTitle>Ajouter à une dataroom</DialogTitle>
+          <DialogDescription>Sélectionnez la dataroom dans laquelle ajouter ce document.</DialogDescription>
         </DialogHeader>
         <div>
           <Select value={selectedId} onValueChange={setSelectedId}>

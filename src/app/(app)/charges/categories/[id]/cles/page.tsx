@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, SlidersHorizontal } from "lucide-react";
 import Link from "next/link";
 
-export const metadata = { title: "Cles de repartition" };
+export const metadata = { title: "Clés de répartition" };
 
 export default async function AllocationKeysPage({
   params,
@@ -42,7 +42,7 @@ export default async function AllocationKeysPage({
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
             <SlidersHorizontal className="h-5 w-5" />
-            Cles de repartition
+            Clés de répartition
           </h1>
           <p className="text-muted-foreground text-sm">
             {category.building.name} &middot; {category.name}
@@ -52,10 +52,10 @@ export default async function AllocationKeysPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Repartition par lot</CardTitle>
+          <CardTitle className="text-base">Répartition par lot</CardTitle>
           <CardDescription>
-            Definissez le pourcentage de charges de cette categorie impute a chaque lot.
-            La somme doit etre egale a 100 %.
+            Définissez le pourcentage de charges de cette catégorie imputé à chaque lot.
+            La somme doit être égale à 100 %.
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -35,7 +35,7 @@ export function ClaimSocietyDialog({ societies }: { societies: ClaimableSociety[
       const result = await claimSociety(societyId);
       if (result.success) {
         setClaimedIds((prev) => new Set([...prev, societyId]));
-        toast.success("Societe rattachee a votre compte proprietaire");
+        toast.success("Société rattachée à votre compte propriétaire");
         router.refresh();
       } else {
         toast.error(result.error ?? "Une erreur est survenue");

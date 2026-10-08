@@ -189,9 +189,9 @@ export function RevisionActions({
 
       setGenerating(null);
       if (result.success) {
-        toast.success("Revision generee — en attente de validation");
+        toast.success("Révision générée — en attente de validation");
       } else {
-        toast.error(result.error ?? "Erreur lors de la generation");
+        toast.error(result.error ?? "Erreur lors de la génération");
       }
     } catch (err) {
       setGenerating(null);
@@ -231,7 +231,7 @@ export function RevisionActions({
     setGeneratingAll(false);
     if (success > 0)
       toast.success(
-        `${success} revision${success > 1 ? "s" : ""} generee${success > 1 ? "s" : ""}`
+        `${success} révision${success > 1 ? "s" : ""} générée${success > 1 ? "s" : ""}`
       );
     if (errors > 0) toast.error(`${errors} erreur${errors > 1 ? "s" : ""}`);
   }
@@ -252,7 +252,7 @@ export function RevisionActions({
 
       if (result.success) {
         toast.success(
-          `Loyer mis a jour : ${formatCurrency(result.data!.newRentHT)} HT`
+          `Loyer mis à jour : ${formatCurrency(result.data!.newRentHT)} HT`
         );
       } else {
         toast.error(result.error ?? "Erreur lors de la validation");
@@ -278,7 +278,7 @@ export function RevisionActions({
     setRejecting(null);
 
     if (result.success) {
-      toast.success("Revision annulee");
+      toast.success("Révision annulée");
     } else {
       toast.error(result.error ?? "Erreur");
     }
@@ -351,7 +351,7 @@ export function RevisionActions({
               {eligibleForGeneration.length > 1 ? "baux éligibles" : "bail éligible"} à une révision
             </p>
             <p className="text-xs text-muted-foreground">
-              Generer les propositions de revision en un clic
+              Générer les propositions de révision en un clic
             </p>
           </div>
           <Button
@@ -365,11 +365,11 @@ export function RevisionActions({
               <Sparkles className="h-4 w-4" />
             )}
             <span className="hidden sm:inline">
-              Generer{" "}
+              Générer{" "}
               {eligibleForGeneration.length > 1 ? "toutes les " : "la "}
-              revision{eligibleForGeneration.length > 1 ? "s" : ""}
+              révision{eligibleForGeneration.length > 1 ? "s" : ""}
             </span>
-            <span className="sm:hidden">Generer</span>
+            <span className="sm:hidden">Générer</span>
           </Button>
         </div>
       )}
@@ -536,7 +536,7 @@ export function RevisionActions({
                           className="h-7 w-7 text-[var(--color-status-positive)] hover:bg-[var(--color-status-positive)]/10"
                           onClick={() => handleValidate(lease)}
                           disabled={!!isValidatingThis}
-                          title="Valider la revision"
+                          title="Valider la révision"
                         >
                           {isValidatingThis ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -550,7 +550,7 @@ export function RevisionActions({
                           className="h-7 w-7 text-[var(--color-status-negative)] hover:bg-[var(--color-status-negative)]/10"
                           onClick={() => handleReject(lease)}
                           disabled={!!isRejectingThis}
-                          title="Rejeter la revision"
+                          title="Rejeter la révision"
                         >
                           {isRejectingThis ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -593,8 +593,8 @@ export function RevisionActions({
                               blockReason
                                 ? blockReason
                                 : preview
-                                  ? `Nouveau loyer estime : ${formatCurrency(preview.newRent)}`
-                                  : "Generer la revision"
+                                  ? `Nouveau loyer estimé : ${formatCurrency(preview.newRent)}`
+                                  : "Générer la révision"
                             }
                           >
                             {isGeneratingThis ? (
@@ -602,7 +602,7 @@ export function RevisionActions({
                             ) : (
                               <Play className="h-3 w-3" />
                             )}
-                            Reviser
+                            Réviser
                           </Button>
                         )}
                       </div>
@@ -623,7 +623,7 @@ export function RevisionActions({
       {pendingRevisions.length > 0 && (
         <div className="rounded-lg border border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800 p-3 text-xs space-y-1.5 mt-4">
           <p className="font-medium text-blue-700 dark:text-blue-400">
-            Formule de calcul des revisions en attente :
+            Formule de calcul des révisions en attente :
           </p>
           {pendingRevisions.map((l) => (
             <p
@@ -648,7 +648,7 @@ export function RevisionActions({
           {confirmDialog?.type === "generate" && confirmDialog.lease && (
             <>
               <DialogHeader>
-                <DialogTitle>Generer la revision de loyer</DialogTitle>
+                <DialogTitle>Générer la révision de loyer</DialogTitle>
                 <DialogDescription>
                   Bail de{" "}
                   <strong>{confirmDialog.lease.tenantName}</strong> &mdash;{" "}
@@ -664,7 +664,7 @@ export function RevisionActions({
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">
-                    Nouveau loyer propose :
+                    Nouveau loyer proposé :
                   </span>
                   <span className="font-semibold text-primary text-lg">
                     {formatCurrency(confirmDialog.newRent ?? 0)} HT
@@ -674,8 +674,8 @@ export function RevisionActions({
                   {confirmDialog.formula}
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  La revision sera creee en attente de validation. Le loyer ne
-                  sera modifie qu&apos;apres votre validation explicite.
+                  La révision sera créée en attente de validation. Le loyer ne
+                  sera modifié qu&apos;après votre validation explicite.
                 </p>
               </div>
               <DialogFooter>
@@ -690,7 +690,7 @@ export function RevisionActions({
                   className="gap-1.5"
                 >
                   <Sparkles className="h-4 w-4" />
-                  Generer la revision
+                  Générer la révision
                 </Button>
               </DialogFooter>
             </>
@@ -699,7 +699,7 @@ export function RevisionActions({
           {confirmDialog?.type === "generateAll" && (
             <>
               <DialogHeader>
-                <DialogTitle>Generer toutes les revisions</DialogTitle>
+                <DialogTitle>Générer toutes les révisions</DialogTitle>
                 <DialogDescription>
                   {eligibleForGeneration.length}{" "}
                   {eligibleForGeneration.length > 1 ? "baux seront révisés" : "bail sera révisé"}
@@ -735,7 +735,7 @@ export function RevisionActions({
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                Toutes les revisions seront creees en attente de validation.
+                Toutes les révisions seront créées en attente de validation.
               </p>
               <DialogFooter>
                 <Button
@@ -746,7 +746,7 @@ export function RevisionActions({
                 </Button>
                 <Button onClick={confirmGenerateAll} className="gap-1.5">
                   <Sparkles className="h-4 w-4" />
-                  Generer toutes les revisions
+                  Générer toutes les révisions
                 </Button>
               </DialogFooter>
             </>
@@ -755,9 +755,9 @@ export function RevisionActions({
           {confirmDialog?.type === "validate" && confirmDialog.lease && (
             <>
               <DialogHeader>
-                <DialogTitle>Valider la revision</DialogTitle>
+                <DialogTitle>Valider la révision</DialogTitle>
                 <DialogDescription>
-                  Confirmer la revision du loyer pour{" "}
+                  Confirmer la révision du loyer pour{" "}
                   <strong>{confirmDialog.lease.tenantName}</strong>
                 </DialogDescription>
               </DialogHeader>
@@ -782,7 +782,7 @@ export function RevisionActions({
                   </div>
                 )}
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Le loyer du bail sera immediatement mis a jour.
+                  Le loyer du bail sera immédiatement mis à jour.
                 </p>
               </div>
               <DialogFooter>
@@ -806,15 +806,15 @@ export function RevisionActions({
           {confirmDialog?.type === "reject" && confirmDialog.lease && (
             <>
               <DialogHeader>
-                <DialogTitle>Rejeter la revision</DialogTitle>
+                <DialogTitle>Rejeter la révision</DialogTitle>
                 <DialogDescription>
-                  Annuler la revision proposee pour{" "}
+                  Annuler la révision proposée pour{" "}
                   <strong>{confirmDialog.lease.tenantName}</strong>
                 </DialogDescription>
               </DialogHeader>
               <p className="text-sm text-muted-foreground py-2">
-                La proposition de revision sera supprimee. Le loyer reste
-                inchange a{" "}
+                La proposition de révision sera supprimée. Le loyer reste
+                inchangé à{" "}
                 {formatCurrency(confirmDialog.lease.currentRentHT)} HT.
               </p>
               <DialogFooter>
@@ -840,7 +840,7 @@ export function RevisionActions({
             <>
               <DialogHeader>
                 <DialogTitle>
-                  Traiter les revisions de loyer en retard
+                  Traiter les révisions de loyer en retard
                 </DialogTitle>
                 <DialogDescription>
                   <strong>{confirmDialog.lease.tenantName}</strong> &mdash;{" "}

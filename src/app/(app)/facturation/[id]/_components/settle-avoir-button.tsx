@@ -22,7 +22,7 @@ export function SettleAvoirButton({
     const result = await settleAvoir(societyId, invoiceId);
     setIsLoading(false);
     if (result.success) {
-      toast.success("Avoir solde");
+      toast.success("Avoir soldé");
       router.refresh();
     } else {
       toast.error(result.error ?? "Erreur");

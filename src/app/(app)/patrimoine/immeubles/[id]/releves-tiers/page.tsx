@@ -27,7 +27,7 @@ import type { StatementStatus } from "@/generated/prisma/client";
 
 const TYPE_LABELS: Record<string, string> = {
   APPEL_FONDS: "Appel de fonds",
-  DECOMPTE_CHARGES: "Decompte annuel",
+  DECOMPTE_CHARGES: "Décompte annuel",
 };
 
 const STATUS_LABELS: Record<StatementStatus, string> = {
@@ -122,10 +122,10 @@ export default async function RelevesTiersPage({
           <div>
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
               <Receipt className="h-6 w-6 text-[var(--color-brand-blue)]" />
-              Releves syndic
+              Relevés syndic
             </h1>
             <p className="text-muted-foreground text-sm mt-1">
-              Appels de fonds et decomptes de charges pour {building.name}
+              Appels de fonds et décomptes de charges pour {building.name}
             </p>
           </div>
         </div>
@@ -135,7 +135,7 @@ export default async function RelevesTiersPage({
           >
             <Button variant="outline" size="sm">
               <FileText className="h-4 w-4" />
-              Nouveau decompte
+              Nouveau décompte
             </Button>
           </Link>
           <Link
@@ -182,7 +182,7 @@ export default async function RelevesTiersPage({
                 <TableRow>
                   <TableHead>Type</TableHead>
                   <TableHead>Reference</TableHead>
-                  <TableHead>Periode</TableHead>
+                  <TableHead>Période</TableHead>
                   <TableHead className="text-right">Montant</TableHead>
                   <TableHead className="text-center">Statut</TableHead>
                   <TableHead className="w-10" />

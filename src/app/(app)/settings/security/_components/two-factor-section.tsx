@@ -76,7 +76,7 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled, twoFactorRe
         setEnabled(false);
         setStep("idle");
         setPassword("");
-        toast.success("Authentification 2FA desactivee");
+        toast.success("Authentification 2FA désactivée");
       } else {
         toast.error(result.error ?? "Erreur");
       }
@@ -94,15 +94,15 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled, twoFactorRe
           ) : (
             <ShieldX className="h-5 w-5 text-muted-foreground" />
           )}
-          <CardTitle>Authentification a deux facteurs</CardTitle>
+          <CardTitle>Authentification à deux facteurs</CardTitle>
           {twoFactorRequired && (
             <Badge variant="secondary" className="ml-2">Obligatoire</Badge>
           )}
         </div>
         <CardDescription>
           {enabled
-            ? "L'authentification a deux facteurs est activee sur votre compte."
-            : "Renforcez la securite de votre compte avec une application d'authentification."}
+            ? "L'authentification à deux facteurs est activée sur votre compte."
+            : "Renforcez la sécurité de votre compte avec une application d'authentification."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -110,8 +110,8 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled, twoFactorRe
           <div className="flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-4">
             <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
             <p className="text-sm text-blue-800">
-              L&apos;authentification a deux facteurs est obligatoire pour votre plan Institutionnel.
-              {!enabled && " Veuillez l'activer pour continuer a utiliser l'application."}
+              L&apos;authentification à deux facteurs est obligatoire pour votre plan Institutionnel.
+              {!enabled && " Veuillez l'activer pour continuer à utiliser l'application."}
             </p>
           </div>
         )}
@@ -123,7 +123,7 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled, twoFactorRe
                 onClick={() => setStep("disable")}
                 disabled={twoFactorRequired}
               >
-                Desactiver le 2FA
+                Désactiver le 2FA
               </Button>
             ) : (
               <Button onClick={handleStartSetup} disabled={isLoading}>
@@ -155,7 +155,7 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled, twoFactorRe
               <code className="bg-muted px-2 py-1 rounded text-sm font-mono">{secret}</code>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="confirm-code">Code de verification</Label>
+              <Label htmlFor="confirm-code">Code de vérification</Label>
               <Input
                 id="confirm-code"
                 type="text"
@@ -192,10 +192,10 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled, twoFactorRe
           <div className="space-y-4">
             <div className="rounded-md bg-[var(--color-status-caution-bg)] border border-[var(--color-status-caution)]/30 p-4">
               <p className="text-sm font-semibold text-[var(--color-status-caution)] mb-2">
-                Sauvegardez ces codes de recuperation
+                Sauvegardez ces codes de récupération
               </p>
               <p className="text-xs text-[var(--color-status-caution)] mb-3">
-                Chaque code ne peut etre utilise qu’une seule fois. Conservez-les dans un endroit sur (gestionnaire de mots de passe, papier sous clef...).
+                Chaque code ne peut être utilisé qu’une seule fois. Conservez-les dans un endroit sûr (gestionnaire de mots de passe, papier sous clef...).
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {recoveryCodes.map((code, i) => (
@@ -210,7 +210,7 @@ export function TwoFactorSection({ twoFactorEnabled: initialEnabled, twoFactorRe
                 setEnabled(true);
                 setStep("idle");
                 setRecoveryCodes([]);
-                toast.success("Authentification 2FA activee avec succes");
+                toast.success("Authentification 2FA activée avec succès");
               }}
             >
               J’ai sauvegarde mes codes

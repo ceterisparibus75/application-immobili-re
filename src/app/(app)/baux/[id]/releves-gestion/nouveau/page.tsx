@@ -183,12 +183,12 @@ export default function NouveauDecompteGestionPage() {
     e.preventDefault();
 
     if (!societyId) {
-      toast.error("Societe non selectionnee");
+      toast.error("Société non sélectionnée");
       return;
     }
 
     if (!periodStart || !periodEnd) {
-      toast.error("Les dates de periode sont requises");
+      toast.error("Les dates de période sont requises");
       return;
     }
 
@@ -228,10 +228,10 @@ export default function NouveauDecompteGestionPage() {
       });
 
       if (result.success && result.data) {
-        toast.success("Decompte cree avec succes");
+        toast.success("Décompte créé avec succès");
         router.push(`/baux/${leaseId}/releves-gestion/${result.data.id}`);
       } else {
-        toast.error(result.error ?? "Erreur lors de la creation");
+        toast.error(result.error ?? "Erreur lors de la création");
       }
     } catch {
       toast.error("Erreur inattendue");
@@ -253,10 +253,10 @@ export default function NouveauDecompteGestionPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            Nouveau decompte de gestion
+            Nouveau décompte de gestion
           </h1>
           <p className="text-muted-foreground">
-            Saisissez les informations du decompte transmis par l&apos;agence
+            Saisissez les informations du décompte transmis par l&apos;agence
           </p>
         </div>
       </div>
@@ -321,7 +321,7 @@ export default function NouveauDecompteGestionPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="periodLabel">Libelle de la periode</Label>
+              <Label htmlFor="periodLabel">Libellé de la période</Label>
               <Input
                 id="periodLabel"
                 value={periodLabel}
@@ -333,7 +333,7 @@ export default function NouveauDecompteGestionPage() {
 
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
-              <Label htmlFor="periodStart">Debut de periode</Label>
+              <Label htmlFor="periodStart">Début de période</Label>
               <Input
                 id="periodStart"
                 type="date"
@@ -343,7 +343,7 @@ export default function NouveauDecompteGestionPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="periodEnd">Fin de periode</Label>
+              <Label htmlFor="periodEnd">Fin de période</Label>
               <Input
                 id="periodEnd"
                 type="date"
@@ -353,7 +353,7 @@ export default function NouveauDecompteGestionPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="receivedDate">Date de reception</Label>
+              <Label htmlFor="receivedDate">Date de réception</Label>
               <Input
                 id="receivedDate"
                 type="date"
@@ -371,7 +371,7 @@ export default function NouveauDecompteGestionPage() {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">
-              Lignes du decompte
+              Lignes du décompte
             </CardTitle>
             <Button
               type="button"
@@ -408,12 +408,12 @@ export default function NouveauDecompteGestionPage() {
                   <SelectContent>
                     <SelectItem value="ENCAISSEMENT">Encaissement</SelectItem>
                     <SelectItem value="HONORAIRES">Honoraires</SelectItem>
-                    <SelectItem value="DEDUCTION">Deduction</SelectItem>
+                    <SelectItem value="DEDUCTION">Déduction</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div className="flex-1 space-y-1.5">
-                <Label className="text-xs">Libelle</Label>
+                <Label className="text-xs">Libellé</Label>
                 <Input
                   value={line.label}
                   onChange={(e) =>
@@ -456,7 +456,7 @@ export default function NouveauDecompteGestionPage() {
 
           {/* Net calculated */}
           <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-muted/50">
-            <p className="text-sm font-medium">Net reverse (calcule)</p>
+            <p className="text-sm font-medium">Net reversé (calculé)</p>
             <p
               className={`text-lg font-bold tabular-nums ${
                 net >= 0 ? "text-emerald-600" : "text-red-600"
@@ -496,7 +496,7 @@ export default function NouveauDecompteGestionPage() {
         </Link>
         <Button type="submit" disabled={loading}>
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-          Creer le decompte
+          Créer le décompte
         </Button>
       </div>
     </form>

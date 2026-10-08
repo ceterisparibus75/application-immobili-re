@@ -67,7 +67,7 @@ export function StatementActions({
     setIsValidating(false);
 
     if (result.success) {
-      toast.success("Releve valide avec succes");
+      toast.success("Relevé validé avec succès");
       router.refresh();
     } else {
       toast.error(result.error ?? "Erreur lors de la validation");
@@ -80,7 +80,7 @@ export function StatementActions({
 
     const amount = parseFloat(paymentAmount);
     if (!amount || amount <= 0) {
-      toast.error("Le montant doit etre positif");
+      toast.error("Le montant doit être positif");
       return;
     }
 
@@ -95,7 +95,7 @@ export function StatementActions({
     setIsSubmittingPayment(false);
 
     if (result.success) {
-      toast.success("Paiement enregistre avec succes");
+      toast.success("Paiement enregistré avec succès");
       setIsPaymentOpen(false);
       router.refresh();
     } else {
@@ -136,7 +136,7 @@ export function StatementActions({
               <DialogHeader>
                 <DialogTitle>Enregistrer un paiement</DialogTitle>
                 <DialogDescription>
-                  Saisissez les informations du paiement effectue au syndic.
+                  Saisissez les informations du paiement effectué au syndic.
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handlePayment} className="space-y-4">
@@ -152,7 +152,7 @@ export function StatementActions({
                     className="tabular-nums"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Reste du : {((totalAmount - paidAmount).toFixed(2))} EUR
+                    Reste dû : {((totalAmount - paidAmount).toFixed(2))} EUR
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -171,11 +171,11 @@ export function StatementActions({
                     id="paymentMethod"
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
-                    placeholder="Ex: Virement, Cheque, Prelevement"
+                    placeholder="Ex : Virement, Chèque, Prélèvement"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="paymentReference">Reference</Label>
+                  <Label htmlFor="paymentReference">Référence</Label>
                   <Input
                     id="paymentReference"
                     value={paymentReference}

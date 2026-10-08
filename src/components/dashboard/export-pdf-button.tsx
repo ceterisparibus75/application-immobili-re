@@ -29,7 +29,7 @@ export function ExportPdfButton() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      toast.success("PDF exporte avec succes");
+      toast.success("PDF exporté avec succès");
     } catch (error) {
       console.error("[ExportPdfButton]", error);
       toast.error(error instanceof Error ? error.message : "Erreur lors de l'export");

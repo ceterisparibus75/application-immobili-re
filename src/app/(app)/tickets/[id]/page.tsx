@@ -18,7 +18,7 @@ const STATUS_LABELS: Record<string, string> = {
   OUVERT: "Ouvert",
   EN_COURS: "En cours",
   EN_ATTENTE: "En attente",
-  RESOLU: "Resolu",
+  RESOLU: "Résolu",
   FERME: "Ferme",
 };
 
@@ -86,7 +86,7 @@ export default async function TicketDetailPage({
               {ticket.subject}
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Cree le {new Date(ticket.createdAt).toLocaleDateString("fr-FR")} par {tenantName}
+              Créé le {new Date(ticket.createdAt).toLocaleDateString("fr-FR")} par {tenantName}
               {ticket.location && ` — ${ticket.location}`}
             </p>
           </div>
@@ -193,24 +193,24 @@ export default async function TicketDetailPage({
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div>
-                <p className="text-xs text-muted-foreground">Numero</p>
+                <p className="text-xs text-muted-foreground">Numéro</p>
                 <p className="font-mono">{ticket.ticketNumber}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Categorie</p>
+                <p className="text-xs text-muted-foreground">Catégorie</p>
                 <p>{CATEGORY_LABELS[ticket.category] ?? ticket.category}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Priorite</p>
+                <p className="text-xs text-muted-foreground">Priorité</p>
                 <p>{ticket.priority}</p>
               </div>
               <div>
-                <p className="text-xs text-muted-foreground">Cree le</p>
+                <p className="text-xs text-muted-foreground">Créé le</p>
                 <p>{new Date(ticket.createdAt).toLocaleString("fr-FR")}</p>
               </div>
               {ticket.resolvedAt && (
                 <div>
-                  <p className="text-xs text-muted-foreground">Resolu le</p>
+                  <p className="text-xs text-muted-foreground">Résolu le</p>
                   <p>{new Date(ticket.resolvedAt).toLocaleString("fr-FR")}</p>
                 </div>
               )}

@@ -1522,8 +1522,8 @@ export async function sendNewTicketEmail(params: NewTicketEmailParams): Promise<
     ${infoTable([
       { label: "N° Ticket", value: ticketNumber, bold: true },
       { label: "Sujet", value: ticketSubject },
-      { label: "Categorie", value: category },
-      { label: "Societe", value: societyName },
+      { label: "Catégorie", value: category },
+      { label: "Société", value: societyName },
     ])}
     ${ctaButton("Voir la demande", `${SITE_URL}/tickets/${ticketId}`)}
     ${signature(APP_NAME)}

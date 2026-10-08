@@ -190,15 +190,15 @@ export default function NouveauReleveTiersPage() {
       return;
     }
     if (!periodStart || !periodEnd) {
-      setError("Les dates de periode sont requises");
+      setError("Les dates de période sont requises");
       return;
     }
     if (!receivedDate) {
-      setError("La date de reception est requise");
+      setError("La date de réception est requise");
       return;
     }
     if (lines.some((l) => !l.label.trim())) {
-      setError("Chaque ligne doit avoir un libelle");
+      setError("Chaque ligne doit avoir un libellé");
       return;
     }
 
@@ -227,11 +227,11 @@ export default function NouveauReleveTiersPage() {
     setIsLoading(false);
 
     if (result.success) {
-      toast.success("Releve cree avec succes");
+      toast.success("Relevé créé avec succès");
       router.push(`/patrimoine/immeubles/${params.id}/releves-tiers`);
     } else {
-      setError(result.error ?? "Erreur lors de la creation");
-      toast.error(result.error ?? "Erreur lors de la creation");
+      setError(result.error ?? "Erreur lors de la création");
+      toast.error(result.error ?? "Erreur lors de la création");
     }
   }
 
@@ -248,10 +248,10 @@ export default function NouveauReleveTiersPage() {
           <h1 className="text-2xl font-bold tracking-tight">
             {type === "APPEL_FONDS"
               ? "Nouvel appel de fonds"
-              : "Nouveau decompte annuel"}
+              : "Nouveau décompte annuel"}
           </h1>
           <p className="text-muted-foreground">
-            Enregistrer un releve du syndic de copropriete
+            Enregistrer un relevé du syndic de copropriété
           </p>
         </div>
       </div>
@@ -375,12 +375,12 @@ export default function NouveauReleveTiersPage() {
         {/* Periode et dates */}
         <Card>
           <CardHeader>
-            <CardTitle>Periode et dates</CardTitle>
+            <CardTitle>Période et dates</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor="periodStart">Debut de periode *</Label>
+                <Label htmlFor="periodStart">Début de période *</Label>
                 <Input
                   id="periodStart"
                   type="date"
@@ -390,7 +390,7 @@ export default function NouveauReleveTiersPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="periodEnd">Fin de periode *</Label>
+                <Label htmlFor="periodEnd">Fin de période *</Label>
                 <Input
                   id="periodEnd"
                   type="date"
@@ -400,7 +400,7 @@ export default function NouveauReleveTiersPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="periodLabel">Libelle periode</Label>
+                <Label htmlFor="periodLabel">Libellé période</Label>
                 <Input
                   id="periodLabel"
                   value={periodLabel}
@@ -412,7 +412,7 @@ export default function NouveauReleveTiersPage() {
 
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="receivedDate">Date de reception *</Label>
+                <Label htmlFor="receivedDate">Date de réception *</Label>
                 <Input
                   id="receivedDate"
                   type="date"

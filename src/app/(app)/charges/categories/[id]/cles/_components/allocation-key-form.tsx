@@ -57,7 +57,7 @@ export function AllocationKeyForm({
         })),
       });
       if (result.success) {
-        toast.success("Cle de repartition enregistree");
+        toast.success("Clé de répartition enregistrée");
       } else {
         toast.error(result.error ?? "Erreur lors de l'enregistrement");
       }
@@ -70,7 +70,7 @@ export function AllocationKeyForm({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
-          Categorie : <strong>{categoryName}</strong>
+          Catégorie : <strong>{categoryName}</strong>
         </p>
         <Button variant="ghost" size="sm" onClick={distributeEqually} type="button">
           <RotateCcw className="h-3.5 w-3.5 mr-1" />
@@ -113,7 +113,7 @@ export function AllocationKeyForm({
           {!isValid && (
             <div className="flex items-center gap-1.5 text-destructive text-sm">
               <AlertCircle className="h-4 w-4" />
-              Total : {total.toFixed(1)} % (doit etre 100 %)
+              Total : {total.toFixed(1)} % (doit être 100 %)
             </div>
           )}
           {isValid && (

@@ -19,8 +19,8 @@ export default async function SecuritySettingsPage() {
   return (
     <div className="container max-w-2xl py-8 space-y-8">
       <div>
-        <h1 className="text-2xl font-bold">Securite</h1>
-        <p className="text-muted-foreground">Gerez la securite de votre compte</p>
+        <h1 className="text-2xl font-bold">Sécurité</h1>
+        <p className="text-muted-foreground">Gérez la sécurité de votre compte</p>
       </div>
       <TwoFactorSection
         twoFactorEnabled={user?.twoFactorEnabled ?? false}

@@ -87,10 +87,10 @@ export function OwnerProfileForm({ profile }: Props) {
         nationality: nationality || undefined,
       });
       if (result.success) {
-        toast.success("Profil mis a jour avec succes");
+        toast.success("Profil mis à jour avec succès");
         setEditing(false);
       } else {
-        toast.error(result.error ?? "Erreur lors de la mise a jour");
+        toast.error(result.error ?? "Erreur lors de la mise à jour");
       }
     });
   }

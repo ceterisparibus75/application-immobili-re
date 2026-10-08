@@ -247,7 +247,7 @@ export default function NouvelleCategorieChargePage() {
               <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
                 <SlidersHorizontal className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
-                  Apres creation, vous pourrez configurer le pourcentage de chaque lot depuis la page <strong>Cles de repartition</strong>.
+                  Après création, vous pourrez configurer le pourcentage de chaque lot depuis la page <strong>Clés de répartition</strong>.
                 </span>
               </div>
             )}

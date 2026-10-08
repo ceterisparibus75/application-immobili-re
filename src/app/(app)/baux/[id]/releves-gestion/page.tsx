@@ -31,7 +31,7 @@ import { requireSocietyAccess } from "@/lib/permissions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { TenantEntityType } from "@/generated/prisma/client";
 
-export const metadata = { title: "Decomptes de gestion" };
+export const metadata = { title: "Décomptes de gestion" };
 
 /* ─── Labels de statut ────────────────────────────────────────────── */
 
@@ -162,7 +162,7 @@ export default async function RelevesGestionPage({
           </Link>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              Decomptes de gestion
+              Décomptes de gestion
             </h1>
             <p className="text-muted-foreground">
               {tenantName(lease.tenant)} &mdash;{" "}
@@ -173,7 +173,7 @@ export default async function RelevesGestionPage({
         <Link href={`/baux/${id}/releves-gestion/nouveau`}>
           <Button>
             <Plus className="h-4 w-4" />
-            Nouveau decompte
+            Nouveau décompte
           </Button>
         </Link>
       </div>
@@ -191,7 +191,7 @@ export default async function RelevesGestionPage({
             <div>
               <p className="text-xs text-muted-foreground">Agence</p>
               <p className="text-sm font-medium">
-                {agencyName ?? "Non renseignee"}
+                {agencyName ?? "Non renseignée"}
               </p>
             </div>
             <div>
@@ -201,7 +201,7 @@ export default async function RelevesGestionPage({
               <p className="text-sm font-medium">
                 {lease.managementFeeType
                   ? FEE_TYPE_LABELS[lease.managementFeeType] ?? lease.managementFeeType
-                  : "Non configure"}
+                  : "Non configuré"}
               </p>
             </div>
             <div>
@@ -231,7 +231,7 @@ export default async function RelevesGestionPage({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Receipt className="h-4 w-4" />
-            Historique des decomptes ({statements.length})
+            Historique des décomptes ({statements.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -241,16 +241,16 @@ export default async function RelevesGestionPage({
                 <FileText className="h-7 w-7 text-primary" />
               </div>
               <h3 className="text-lg font-semibold mb-1">
-                Aucun decompte de gestion
+                Aucun décompte de gestion
               </h3>
               <p className="text-sm text-muted-foreground text-center max-w-md mb-5">
-                Saisissez le premier decompte transmis par l&apos;agence pour
-                commencer le suivi et la verification automatique.
+                Saisissez le premier décompte transmis par l&apos;agence pour
+                commencer le suivi et la vérification automatique.
               </p>
               <Link href={`/baux/${id}/releves-gestion/nouveau`}>
                 <Button>
                   <Plus className="h-4 w-4" />
-                  Creer un decompte
+                  Créer un décompte
                 </Button>
               </Link>
             </div>
@@ -258,12 +258,12 @@ export default async function RelevesGestionPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Periode</TableHead>
+                  <TableHead>Période</TableHead>
                   <TableHead className="text-right">Montant total</TableHead>
-                  <TableHead className="text-right">Net reverse</TableHead>
+                  <TableHead className="text-right">Net reversé</TableHead>
                   <TableHead className="text-center">Statut</TableHead>
                   <TableHead className="text-center">Verification</TableHead>
-                  <TableHead>Reception</TableHead>
+                  <TableHead>Réception</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

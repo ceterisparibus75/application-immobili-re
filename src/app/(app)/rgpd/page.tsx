@@ -170,7 +170,7 @@ export default async function RgpdPage() {
                       <a
                         href={`/api/rgpd/requests/${r.id}/export`}
                         className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted transition-colors"
-                        title="Exporter les donnees du locataire"
+                        title="Exporter les données du locataire"
                       >
                         <Download className="h-3 w-3" />
                         Exporter

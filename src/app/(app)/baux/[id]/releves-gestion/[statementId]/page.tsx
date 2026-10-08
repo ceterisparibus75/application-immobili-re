@@ -32,7 +32,7 @@ import { requireSocietyAccess } from "@/lib/permissions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { VerificationActions } from "./verification-actions";
 
-export const metadata = { title: "Detail decompte de gestion" };
+export const metadata = { title: "Détail décompte de gestion" };
 
 /* ─── Labels ──────────────────────────────────────────────────────── */
 
@@ -273,9 +273,9 @@ export default async function DetailDecompteGestionPage({
         statement.status !== "VALIDE" && (
           <div className="rounded-lg border border-muted bg-muted/30 p-4">
             <p className="text-sm text-muted-foreground">
-              Verification en attente. Utilisez le bouton &laquo; Lancer la
-              verification &raquo; pour comparer les montants declares avec les
-              donnees du bail.
+              Vérification en attente. Utilisez le bouton &laquo; Lancer la
+              vérification &raquo; pour comparer les montants déclarés avec les
+              données du bail.
             </p>
           </div>
         )}
@@ -285,7 +285,7 @@ export default async function DetailDecompteGestionPage({
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center gap-2 text-base">
             <Building2 className="h-4 w-4" />
-            Synthese du decompte
+            Synthèse du décompte
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -333,7 +333,7 @@ export default async function DetailDecompteGestionPage({
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <FileText className="h-4 w-4" />
-              Detail de la verification
+              Détail de la vérification
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -449,7 +449,7 @@ export default async function DetailDecompteGestionPage({
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <FileText className="h-4 w-4" />
-              Lignes du decompte
+              Lignes du décompte
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -527,10 +527,10 @@ function VerificationBanner({
         <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
         <div>
           <p className="text-sm font-semibold text-emerald-800">
-            Decompte conforme
+            Décompte conforme
           </p>
           <p className="text-xs text-emerald-600">
-            Tous les montants declares correspondent aux donnees du bail.
+            Tous les montants déclarés correspondent aux données du bail.
           </p>
         </div>
       </div>
@@ -543,10 +543,10 @@ function VerificationBanner({
         <XCircle className="h-5 w-5 text-red-600 shrink-0" />
         <div>
           <p className="text-sm font-semibold text-red-800">
-            Litige signale
+            Litige signalé
           </p>
           <p className="text-xs text-red-600">
-            Ce decompte fait l&apos;objet d&apos;un litige. Contactez l&apos;agence pour
+            Ce décompte fait l&apos;objet d&apos;un litige. Contactez l&apos;agence pour
             clarification.
           </p>
         </div>
@@ -560,11 +560,11 @@ function VerificationBanner({
         <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
         <div>
           <p className="text-sm font-semibold text-emerald-800">
-            Verification conforme
+            Vérification conforme
           </p>
           <p className="text-xs text-emerald-600">
-            Tous les montants declares correspondent aux donnees du bail.
-            Vous pouvez marquer ce decompte comme conforme.
+            Tous les montants déclarés correspondent aux données du bail.
+            Vous pouvez marquer ce décompte comme conforme.
           </p>
         </div>
       </div>

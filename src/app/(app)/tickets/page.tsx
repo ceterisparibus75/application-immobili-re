@@ -19,7 +19,7 @@ const STATUS_LABELS: Record<string, string> = {
   OUVERT: "Ouvert",
   EN_COURS: "En cours",
   EN_ATTENTE: "En attente",
-  RESOLU: "Resolu",
+  RESOLU: "Résolu",
   FERME: "Ferme",
 };
 

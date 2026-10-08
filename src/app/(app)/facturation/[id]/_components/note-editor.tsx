@@ -22,7 +22,7 @@ export function NoteEditor({ invoiceId, societyId, initialNote }: NoteEditorProp
     startTransition(async () => {
       const result = await updateInvoiceNote(societyId, invoiceId, note.trim() || null);
       if (result.success) {
-        toast.success("Note enregistree");
+        toast.success("Note enregistrée");
       } else {
         toast.error(result.error ?? "Erreur lors de l'enregistrement");
       }
