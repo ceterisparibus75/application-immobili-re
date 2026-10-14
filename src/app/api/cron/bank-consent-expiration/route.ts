@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { verifyCronSecret } from "@/lib/cron-auth";
 import { sendBankConsentExpiryEmail } from "@/lib/email";
+
+// Vercel Pro : budget runtime pour balayer toutes les sociétés sans coupure.
+export const maxDuration = 300;
 import type { NotificationType } from "@/generated/prisma/client";
 
 /**

@@ -25,6 +25,7 @@ import {
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { applyAutoTag } from "@/actions/cashflow";
+import { normalizeLabel } from "@/lib/normalize-label";
 import { env } from "@/lib/env";
 
 // ─── Liste des connecteurs (banques disponibles) ─────────────────────────────
@@ -618,11 +619,14 @@ export async function syncAccountTransactionsInternal(
   userToken: string
 ): Promise<number> {
   const attemptAt = new Date();
-  const row = await prisma.bankAccount.findUnique({ where: { id: bankAccountId }, select: { lastSyncAt: true } });
+  const row = await prisma.bankAccount.findUnique({
+    where: { id: bankAccountId },
+    select: { lastSyncAt: true, connectionId: true },
+  });
   const isFirstSync = !row?.lastSyncAt;
 
   // Toujours remonter 7 jours avant lastSyncAt pour rattraper les transactions manquées
-  // Les doublons sont filtrés via externalId
+  // Les doublons sont filtrés via externalId (contrainte unique [bankAccountId, externalId])
   let dateFrom: string;
   if (row?.lastSyncAt) {
     const bufferDate = new Date(row.lastSyncAt);
@@ -636,72 +640,166 @@ export async function syncAccountTransactionsInternal(
   try {
     transactions = await getPowensTransactions(userId, powensAccountId, userToken, dateFrom);
   } catch (error) {
-    // Trace la tentative + l'erreur pour que l'UI puisse la remonter
     const errorMessage = error instanceof Error ? error.message : String(error);
+    // 401 / 403 : le token est mort ou le consentement a été révoqué côté banque.
+    // On passe la connexion en « expired » pour que l'UI propose le renouvellement.
+    const isAuthError = /\((401|403)\)/.test(errorMessage);
     await prisma.bankAccount.update({
       where: { id: bankAccountId },
       data: { lastSyncAttemptAt: attemptAt, lastSyncError: errorMessage.slice(0, 500) },
     });
+    if (isAuthError && row?.connectionId) {
+      await prisma.bankConnection.update({
+        where: { id: row.connectionId },
+        data: { status: "expired" },
+      }).catch(() => undefined);
+    }
     throw error;
   }
 
-  let imported = 0;
-  let balanceDelta = 0;
-  for (const tx of transactions) {
-    const externalId = String(tx.id);
-    const dup = await prisma.bankTransaction.findFirst({ where: { bankAccountId, externalId } });
-    if (dup) continue;
-    const amount = tx.value;
-    const label = tx.simplified_wording ?? tx.label ?? tx.original_wording ?? "Transaction";
-    // Auto-tag : catégoriser automatiquement si le libellé est connu
-    const autoCategory = await applyAutoTag(societyId, label);
-    await prisma.bankTransaction.create({ data: {
-      bankAccountId, transactionDate: new Date(tx.date),
-      valueDate: tx.value_date ? new Date(tx.value_date) : null,
-      amount, label, reference: externalId, externalId,
-      category: autoCategory,
-      importBatch: "sync-" + String(Date.now()),
-    } });
-    balanceDelta += amount;
-    imported++;
+  // Récupère le solde autoritaire côté Powens (point 3) + détecte un compte
+  // clôturé côté banque (point 9). Si l'appel échoue on retombe sur le delta
+  // calculé — on ne veut pas bloquer l'import pour un simple souci de solde.
+  let powensBalance: number | null = null;
+  let powensDeleted = false;
+  try {
+    const accounts = await getPowensUserAccounts(userId, userToken);
+    const match = accounts.find((a) => a.id === powensAccountId);
+    if (match) {
+      powensBalance = typeof match.balance === "number" ? match.balance : null;
+      powensDeleted = Boolean(match.deleted) || match.disabled === true;
+    }
+  } catch {
+    // ignore : le solde Powens sera estimé par delta
   }
 
-  // MAJ du compte : lastSyncAttemptAt et lastSyncError sont TOUJOURS mis à jour
-  // (même à 0 tx), lastSyncAt / balance uniquement si des tx ont été importées.
-  if (isFirstSync && imported > 0) {
-    // Première sync : le solde Powens (currentBalance) inclut déjà ces transactions.
-    // On ajuste initialBalance pour que initialBalance + somme_transactions = currentBalance.
-    const account = await prisma.bankAccount.findUnique({ where: { id: bankAccountId }, select: { currentBalance: true } });
-    const correctInitial = (account?.currentBalance ?? 0) - balanceDelta;
-    await prisma.bankAccount.update({ where: { id: bankAccountId }, data: {
-      initialBalance: correctInitial,
-      lastSyncAt: attemptAt,
-      lastSyncAttemptAt: attemptAt,
-      lastSyncError: null,
-    } });
-  } else if (imported > 0) {
-    await prisma.bankAccount.update({ where: { id: bankAccountId }, data: {
-      currentBalance: { increment: balanceDelta },
-      lastSyncAt: attemptAt,
-      lastSyncAttemptAt: attemptAt,
-      lastSyncError: null,
-    } });
-  } else {
-    // 0 tx : on ne touche pas lastSyncAt (fenêtre de rattrapage) ni au solde,
-    // mais on trace la tentative et on efface l'erreur précédente puisque
-    // l'API a répondu correctement.
-    await prisma.bankAccount.update({ where: { id: bankAccountId }, data: {
-      lastSyncAttemptAt: attemptAt,
-      lastSyncError: null,
-    } });
+  // Pré-charge toutes les règles d'auto-tag de la société une seule fois (point 6)
+  // au lieu d'un findFirst par transaction (évite ~500 requêtes par sync).
+  const autoTagRules = await prisma.transactionAutoTag.findMany({
+    where: { societyId },
+    select: { normalizedLabel: true, category: true },
+  }).catch(() => [] as Array<{ normalizedLabel: string; category: string }>);
+  const autoTagMap = new Map(autoTagRules.map((r) => [r.normalizedLabel, r.category]));
+  const autoTagHits = new Map<string, number>();
+
+  const importBatch = "sync-" + String(Date.now());
+  const toCreate: Array<{
+    bankAccountId: string;
+    transactionDate: Date;
+    valueDate: Date | null;
+    amount: number;
+    label: string;
+    reference: string;
+    externalId: string;
+    category: string | null;
+    importBatch: string;
+  }> = [];
+
+  for (const tx of transactions) {
+    const externalId = String(tx.id);
+    const label = tx.simplified_wording ?? tx.label ?? tx.original_wording ?? "Transaction";
+
+    // Date réelle de l'opération (point 4) : rdate si fourni, sinon date de
+    // comptabilisation. Date de valeur : vdate (ou l'ancien value_date pour
+    // compatibilité) avec fallback sur date.
+    const txDate = tx.rdate ?? tx.date;
+    const valueDateRaw = tx.vdate ?? tx.value_date ?? null;
+
+    const norm = normalizeLabel(label);
+    let category: string | null = null;
+    if (norm && norm.length >= 3) {
+      const cat = autoTagMap.get(norm);
+      if (cat) {
+        category = cat;
+        autoTagHits.set(norm, (autoTagHits.get(norm) ?? 0) + 1);
+      }
+    }
+
+    toCreate.push({
+      bankAccountId,
+      transactionDate: new Date(txDate),
+      valueDate: valueDateRaw ? new Date(valueDateRaw) : null,
+      amount: tx.value,
+      label,
+      reference: externalId,
+      externalId,
+      category,
+      importBatch,
+    });
   }
+
+  // Un seul createMany avec skipDuplicates (point 6) — l'index unique
+  // [bankAccountId, externalId] filtre les doublons sans Prisma count prealable.
+  let imported = 0;
+  if (toCreate.length > 0) {
+    const result = await prisma.bankTransaction.createMany({
+      data: toCreate,
+      skipDuplicates: true,
+    });
+    imported = result.count;
+  }
+
+  // Incrémente les compteurs auto-tag (hitCount) sans bloquer la sync si la
+  // table n'existe pas sur une DB ancienne.
+  if (autoTagHits.size > 0) {
+    await Promise.all(
+      Array.from(autoTagHits.entries()).map(([normalizedLabel, hits]) =>
+        prisma.transactionAutoTag.update({
+          where: { societyId_normalizedLabel: { societyId, normalizedLabel } },
+          data: { hitCount: { increment: hits } },
+        }).catch(() => undefined)
+      )
+    );
+  }
+
+  // MAJ du compte (point 3) : on reprend le solde Powens tel quel si on l'a,
+  // sinon on retombe sur l'ancien calcul par delta pour la première sync.
+  const updateData: Record<string, unknown> = {
+    lastSyncAttemptAt: attemptAt,
+    lastSyncError: null,
+  };
+  if (powensDeleted) {
+    updateData.isActive = false;
+  }
+  if (powensBalance !== null) {
+    updateData.currentBalance = powensBalance;
+    if (isFirstSync) {
+      // initialBalance = solde Powens - sum(transactions importées sur 90j)
+      // pour que l'historique affiché reste cohérent.
+      const delta = toCreate.reduce((s, t) => s + t.amount, 0);
+      updateData.initialBalance = powensBalance - delta;
+    }
+    updateData.lastSyncAt = attemptAt;
+  } else if (imported > 0) {
+    // Fallback : pas de solde Powens disponible → ancien comportement.
+    const delta = toCreate.reduce((s, t) => s + t.amount, 0);
+    if (isFirstSync) {
+      const account = await prisma.bankAccount.findUnique({
+        where: { id: bankAccountId },
+        select: { currentBalance: true },
+      });
+      updateData.initialBalance = (account?.currentBalance ?? 0) - delta;
+    } else {
+      updateData.currentBalance = { increment: delta };
+    }
+    updateData.lastSyncAt = attemptAt;
+  }
+
+  await prisma.bankAccount.update({ where: { id: bankAccountId }, data: updateData });
 
   await prisma.auditLog.create({ data: {
     societyId, action: "CREATE", entity: "BankTransaction", entityId: bankAccountId,
-    details: { imported, source: "powens_sync", isFirstSync },
+    details: {
+      imported,
+      source: "powens_sync",
+      isFirstSync,
+      powensBalanceApplied: powensBalance !== null,
+      accountDeactivated: powensDeleted,
+    },
   } });
   return imported;
 }
+
 
 // ─── Qonto : connexion directe ──────────────────────────────────────────────
 

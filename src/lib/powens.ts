@@ -54,19 +54,50 @@ export interface PowensAccount {
   coming?: number;
   type?: string;
   disabled?: boolean;
+  /** Date de dernière mise à jour du solde côté banque (ISO) */
+  last_update?: string | null;
+  /** Si non-null, le compte a été clôturé côté banque */
+  deleted?: string | null;
   currency?: { id: string };
 }
 
 export interface PowensTransaction {
   id: number;
   id_account: number;
+  /** Date de comptabilisation */
   date: string;
+  /** Date réelle de l'opération (côté banque) */
+  rdate?: string | null;
+  /** Date de valeur */
+  vdate?: string | null;
+  /** @deprecated Non renvoyé par Powens — remplacé par vdate */
   value_date?: string;
   value: number;
   label?: string;
   original_wording?: string;
   simplified_wording?: string;
   type?: string;
+  /** True pour les opérations à venir (non comptabilisées) */
+  coming?: boolean;
+  /** Non-null si la transaction a été supprimée côté Powens */
+  deleted?: string | null;
+}
+
+/**
+ * État d'une connexion Powens côté serveur. Valeurs usuelles :
+ * - null / undefined : connexion OK
+ * - `SCARequired`, `webauthRequired`, `additionalInformationNeeded`,
+ *   `decoupled`, `validating` : action utilisateur requise
+ * - `wrongpass`, `actionNeeded`, `websiteUnavailable`, `bug` : connexion KO
+ */
+export interface PowensConnectionStatus {
+  id: number;
+  state?: string | null;
+  error?: string | null;
+  error_message?: string | null;
+  last_update?: string | null;
+  expire?: string | null;
+  active?: boolean;
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -219,25 +250,77 @@ export async function getPowensUserAccounts(
   return (Array.isArray(data) ? data : (data.accounts ?? data.data ?? [])) as PowensAccount[];
 }
 
+// ─── État d'une connexion ─────────────────────────────────────────────────────
+
+/**
+ * Récupère toutes les connexions de l'utilisateur Powens pour lire leur `state`
+ * (SCARequired, wrongpass, …). Nécessaire pour détecter qu'une connexion exige
+ * une nouvelle authentification forte avant son `expiresAt`.
+ */
+export async function getPowensConnectionsStatus(
+  userId: number,
+  userToken: string
+): Promise<PowensConnectionStatus[]> {
+  const res = await fetch(`${baseUrl()}/users/${userId}/connections`, {
+    headers: { Authorization: `Bearer ${userToken}` },
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`[powens] getConnections (${res.status}): ${txt}`);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const data = (await res.json()) as any;
+  return (Array.isArray(data) ? data : (data.connections ?? [])) as PowensConnectionStatus[];
+}
+
 // ─── Transactions ─────────────────────────────────────────────────────────────
 
+/**
+ * Récupère TOUTES les transactions d'un compte depuis `dateFrom` en paginant
+ * (limit=500, offset incrémenté). Filtre côté client les opérations à venir
+ * (`coming: true`) et supprimées (`deleted` non nul) : Powens les renvoie mais
+ * elles ne sont pas des mouvements comptables définitifs.
+ *
+ * Garde-fou : s'arrête après `MAX_PAGES` pages pour éviter une boucle infinie
+ * en cas de bug Powens.
+ */
 export async function getPowensTransactions(
   userId: number,
   accountId: number,
   userToken: string,
   dateFrom?: string
 ): Promise<PowensTransaction[]> {
-  const params = new URLSearchParams({ limit: "500" });
-  if (dateFrom) params.set("min_date", dateFrom);
+  const PAGE_SIZE = 500;
+  const MAX_PAGES = 40; // 20 000 transactions max par sync — large pour un compte
+  const all: PowensTransaction[] = [];
 
-  const res = await fetch(
-    `${baseUrl()}/users/${userId}/accounts/${accountId}/transactions?${params}`,
-    { headers: { Authorization: `Bearer ${userToken}` } }
-  );
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`[powens] getTransactions (${res.status}): ${txt}`);
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const params = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(page * PAGE_SIZE),
+    });
+    if (dateFrom) params.set("min_date", dateFrom);
+
+    const res = await fetch(
+      `${baseUrl()}/users/${userId}/accounts/${accountId}/transactions?${params}`,
+      { headers: { Authorization: `Bearer ${userToken}` } }
+    );
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`[powens] getTransactions (${res.status}): ${txt}`);
+    }
+    const data = (await res.json()) as { transactions?: PowensTransaction[] };
+    const batch = data.transactions ?? [];
+    for (const tx of batch) {
+      // Ignore les opérations à venir (seront envoyées à nouveau quand elles
+      // seront comptabilisées, avec un id définitif différent) et les
+      // supprimées (déjà exclues côté banque).
+      if (tx.coming === true) continue;
+      if (tx.deleted) continue;
+      all.push(tx);
+    }
+    if (batch.length < PAGE_SIZE) break;
   }
-  const data = (await res.json()) as { transactions: PowensTransaction[] };
-  return data.transactions ?? [];
+
+  return all;
 }

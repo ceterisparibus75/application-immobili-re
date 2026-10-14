@@ -6,12 +6,16 @@ const { syncAccountTransactionsInternal, syncQontoTransactionsInternal } = vi.ho
   syncAccountTransactionsInternal: vi.fn(),
   syncQontoTransactionsInternal: vi.fn(),
 }));
+const { getPowensConnectionsStatus } = vi.hoisted(() => ({
+  getPowensConnectionsStatus: vi.fn(),
+}));
 
 vi.mock("@/lib/encryption", () => ({ decrypt }));
 vi.mock("@/actions/bank-connection", () => ({
   syncAccountTransactionsInternal,
   syncQontoTransactionsInternal,
 }));
+vi.mock("@/lib/powens", () => ({ getPowensConnectionsStatus }));
 vi.mock("@/lib/env", () => ({ env: process.env }));
 
 import { GET } from "./route";
@@ -21,9 +25,12 @@ const POWENS_ACCOUNT = {
   societyId: "soc-1",
   powensAccountId: "12345",
   isActive: true,
+  connectionId: "conn-1",
   connection: {
+    id: "conn-1",
     powensUserId: "999",
     powensAccessToken: "enc-token",
+    powensConnectionId: "777",
     status: "active",
   },
 };
@@ -47,6 +54,8 @@ beforeEach(() => {
   prismaMock.bankAccount.findMany.mockResolvedValue([]);
   syncAccountTransactionsInternal.mockResolvedValue(0);
   syncQontoTransactionsInternal.mockResolvedValue(0);
+  // Par défaut : état Powens OK (pas de renouvellement requis)
+  getPowensConnectionsStatus.mockResolvedValue([{ id: 777, state: null }]);
 });
 
 describe("GET /api/cron/sync-bank", () => {
@@ -79,7 +88,12 @@ describe("GET /api/cron/sync-bank", () => {
     );
     const body = await response.json();
     expect(response.status).toBe(200);
-    expect(body).toEqual({ success: true, accountsSynced: 0, transactionsImported: 0 });
+    expect(body).toEqual({
+      success: true,
+      accountsSynced: 0,
+      transactionsImported: 0,
+      connectionsExpiredByState: 0,
+    });
   });
 
   it("synchronise un compte Powens et compte les transactions importées", async () => {
@@ -94,7 +108,12 @@ describe("GET /api/cron/sync-bank", () => {
       }) as never
     );
     const body = await response.json();
-    expect(body).toEqual({ success: true, accountsSynced: 1, transactionsImported: 12 });
+    expect(body).toEqual({
+      success: true,
+      accountsSynced: 1,
+      transactionsImported: 12,
+      connectionsExpiredByState: 0,
+    });
     expect(decrypt).toHaveBeenCalledWith("enc-token");
     expect(syncAccountTransactionsInternal).toHaveBeenCalledWith(
       "soc-1", "acc-powens-1", 12345, 999, "decrypted:enc-token"
