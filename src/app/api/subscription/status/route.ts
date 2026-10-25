@@ -28,6 +28,11 @@ export async function GET(request: NextRequest) {
 
   const result = await checkSubscriptionActive(societyId);
 
+  // Société exemptée de facturation (groupe MTG Holding) : aucune bannière.
+  if (result.active && result.status === "EXEMPT") {
+    return NextResponse.json({ type: null, message: "" });
+  }
+
   if (result.active && result.status === "TRIALING" && result.daysLeft !== undefined) {
     if (result.daysLeft <= 5) {
       return NextResponse.json({

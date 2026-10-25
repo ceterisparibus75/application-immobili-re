@@ -4,6 +4,7 @@ import { requireAuthenticatedActionContext } from "@/lib/action-auth";
 import { prisma } from "@/lib/prisma";
 import { ForbiddenError } from "@/lib/permissions";
 import { createCheckoutSession, createCustomerPortalSession, getStripe, PLANS, PRICE_IDS, planIdFromPriceId } from "@/lib/stripe";
+import { isSocietyBillingExempt } from "@/lib/plan-limits";
 
 const PLAN_RANK: Record<string, number> = { STARTER: 0, PRO: 1, ENTERPRISE: 2 };
 
@@ -152,9 +153,12 @@ export async function getSubscription(
   limits: { maxLots: number; maxSocieties: number; maxUsers: number };
   hasStripeCustomer: boolean;
   usage: { users: number; lots: number };
+  isExempt: boolean;
 }>> {
   try {
     await requireSocietyActionContext(societyId, "LECTURE");
+
+    const exempt = await isSocietyBillingExempt(societyId);
 
     const subscription = await prisma.subscription.findUnique({
       where: { societyId },
@@ -194,7 +198,7 @@ export async function getSubscription(
       success: true,
       data: {
         planId,
-        status,
+        status: exempt ? "EXEMPT" : status,
         trialEnd: trialEnd?.toISOString() ?? null,
         currentPeriodEnd: currentPeriodEnd?.toISOString() ?? null,
         cancelAt: cancelAt?.toISOString() ?? null,
@@ -206,6 +210,7 @@ export async function getSubscription(
         },
         hasStripeCustomer: !!subscription?.stripeCustomerId,
         usage: { users: userCount, lots: lotCount },
+        isExempt: exempt,
       },
     };
   } catch (error) {
@@ -225,6 +230,10 @@ export async function createCheckout(
 ): Promise<ActionResult<{ url: string }>> {
   try {
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    if (await isSocietyBillingExempt(societyId)) {
+      return { success: false, error: "Cette société fait partie du groupe mandataire et n'est pas soumise à la facturation du site." };
+    }
 
     const priceId = PRICE_IDS[planId]?.[billingPeriod];
     if (!priceId || priceId.trim() === "") {
@@ -279,6 +288,10 @@ export async function changeSubscriptionPlan(
 ): Promise<ActionResult<{ url?: string; updated?: boolean }>> {
   try {
     const context = await requireSocietyActionContext(societyId, "GESTIONNAIRE");
+
+    if (await isSocietyBillingExempt(societyId)) {
+      return { success: false, error: "Cette société fait partie du groupe mandataire et n'est pas soumise à la facturation du site." };
+    }
 
     const priceId = PRICE_IDS[planId]?.[billingPeriod];
     if (!priceId || priceId.trim() === "") {

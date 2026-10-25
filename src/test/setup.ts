@@ -57,4 +57,5 @@ vi.mock("@/lib/plan-limits", () => ({
   checkUserLimit: vi.fn().mockResolvedValue({ allowed: true }),
   checkSocietyLimit: vi.fn().mockResolvedValue({ allowed: true }),
   getSocietyPlan: vi.fn().mockResolvedValue("PRO"),
+  isSocietyBillingExempt: vi.fn().mockResolvedValue(false),
 }))

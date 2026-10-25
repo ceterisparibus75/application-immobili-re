@@ -1,6 +1,65 @@
 import { prisma } from "@/lib/prisma";
 import { PLANS, getStripe, planIdFromPriceId } from "@/lib/stripe";
 import type { PlanId } from "@/lib/stripe";
+import { env } from "@/lib/env";
+
+/**
+ * Normalise un SIRET pour la comparaison (supprime espaces, tirets, points).
+ */
+function normalizeSiret(siret: string | null | undefined): string | null {
+  if (!siret) return null;
+  const cleaned = siret.replace(/[\s.\-]/g, "");
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+/**
+ * Une société appartient-elle au groupe mandataire (MTG Holding), auquel cas
+ * elle est exemptée de la facturation du site. L'identification se fait via le
+ * SIRET de son Proprietaire, comparé à `env.PA_MANDATAIRE_SIRET`.
+ *
+ * Non configuré (env absente) → aucune société n'est exemptée.
+ */
+export async function isSocietyBillingExempt(societyId: string): Promise<boolean> {
+  const mandataireSiret = normalizeSiret(env.PA_MANDATAIRE_SIRET);
+  if (!mandataireSiret) return false;
+
+  try {
+    const soc = await prisma.society.findUnique({
+      where: { id: societyId },
+      select: { proprietaire: { select: { siret: true } } },
+    });
+    const propSiret = normalizeSiret(soc?.proprietaire?.siret);
+    return propSiret !== null && propSiret === mandataireSiret;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Retourne tous les societyId qui partagent le même Proprietaire que la
+ * société passée en argument (y compris elle-même). Si la société n'a pas
+ * de Proprietaire renseigné, retourne juste `[societyId]`.
+ *
+ * Résilient : si la lookup échoue (test non mocké, DB indisponible…), on
+ * retombe sur `[societyId]` plutôt que de bloquer l'évaluation d'un plan.
+ */
+async function getGroupSocietyIds(societyId: string): Promise<string[]> {
+  try {
+    const soc = await prisma.society.findUnique({
+      where: { id: societyId },
+      select: { proprietaireId: true },
+    });
+    if (!soc?.proprietaireId) return [societyId];
+    const siblings = await prisma.society.findMany({
+      where: { proprietaireId: soc.proprietaireId },
+      select: { id: true },
+    });
+    const ids = siblings?.map((s) => s.id) ?? [];
+    return ids.length > 0 ? ids : [societyId];
+  } catch {
+    return [societyId];
+  }
+}
 
 /**
  * Retourne le plan effectif d'une société en tenant compte de la couverture
@@ -15,17 +74,27 @@ async function getEffectivePlan(societyId: string): Promise<PlanId> {
   const coverage = await checkCoveredByOwnerSubscription(societyId);
   if (!coverage.covered || coverage.overLimit) return ownPlan;
 
-  // Trouver le meilleur plan actif parmi toutes les sociétés des admins
+  // Trouver le meilleur plan actif parmi toutes les sociétés des admins ET
+  // du même groupe (Proprietaire) — un abonnement souscrit par une société
+  // du groupe couvre les autres sociétés du groupe.
   const admins = await prisma.userSociety.findMany({
     where: { societyId, role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] } },
     select: { userId: true },
   });
   const adminUserIds = admins.map((a) => a.userId);
-  const allMemberships = await prisma.userSociety.findMany({
-    where: { userId: { in: adminUserIds }, role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] } },
-    select: { societyId: true },
-  });
-  const allSocietyIds = [...new Set(allMemberships.map((m) => m.societyId))];
+  const allMemberships = adminUserIds.length > 0
+    ? await prisma.userSociety.findMany({
+        where: { userId: { in: adminUserIds }, role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] } },
+        select: { societyId: true },
+      })
+    : [];
+  const groupSocietyIds = await getGroupSocietyIds(societyId);
+  const allSocietyIds = [
+    ...new Set([
+      ...allMemberships.map((m) => m.societyId),
+      ...groupSocietyIds,
+    ]),
+  ];
   const activeSubs = await prisma.subscription.findMany({
     where: { societyId: { in: allSocietyIds }, status: "ACTIVE" },
     select: { planId: true },
@@ -40,6 +109,7 @@ async function getEffectivePlan(societyId: string): Promise<PlanId> {
  * Retourne { allowed: true } ou { allowed: false, message: string }.
  */
 export async function checkLotLimit(societyId: string): Promise<{ allowed: boolean; message?: string }> {
+  if (await isSocietyBillingExempt(societyId)) return { allowed: true };
   const plan = await getEffectivePlan(societyId);
   const limits = PLANS[plan];
 
@@ -89,6 +159,7 @@ export async function checkSocietyLimit(userId: string): Promise<{ allowed: bool
  * Verifie si une societe a atteint la limite d'utilisateurs de son plan.
  */
 export async function checkUserLimit(societyId: string): Promise<{ allowed: boolean; message?: string }> {
+  if (await isSocietyBillingExempt(societyId)) return { allowed: true };
   const plan = await getEffectivePlan(societyId);
   const limits = PLANS[plan];
 
@@ -117,6 +188,11 @@ export async function checkSubscriptionActive(societyId: string): Promise<{
   trialEnd?: Date | null;
   daysLeft?: number;
 }> {
+  // Groupe mandataire (MTG Holding) : sort de la facturation du site.
+  if (await isSocietyBillingExempt(societyId)) {
+    return { active: true, status: "EXEMPT" };
+  }
+
   let subscription = await prisma.subscription.findUnique({
     where: { societyId },
   });
@@ -254,28 +330,41 @@ export async function checkCoveredByOwnerSubscription(societyId: string): Promis
     },
     select: { userId: true },
   });
-  if (admins.length === 0) return { covered: false, overLimit: false };
 
   const adminUserIds = admins.map((a) => a.userId);
 
-  // 2. Toutes les sociétés gérées par ces admins (y compris la courante)
-  const allMemberships = await prisma.userSociety.findMany({
-    where: {
-      userId: { in: adminUserIds },
-      role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
-    },
-    select: { societyId: true },
-  });
-  const allSocietyIds = [...new Set(allMemberships.map((m) => m.societyId))];
+  // 2a. Toutes les sociétés gérées par ces admins (y compris la courante)
+  const allMemberships = adminUserIds.length > 0
+    ? await prisma.userSociety.findMany({
+        where: {
+          userId: { in: adminUserIds },
+          role: { in: ["SUPER_ADMIN", "ADMIN_SOCIETE"] },
+        },
+        select: { societyId: true },
+      })
+    : [];
+
+  // 2b. Toutes les sociétés du MÊME groupe (Proprietaire) — un abonnement
+  // souscrit sur une société du groupe doit couvrir les autres sociétés
+  // du même groupe même si elles sont gérées par un admin différent.
+  const groupSocietyIds = await getGroupSocietyIds(societyId);
+
+  const allSocietyIds = [
+    ...new Set([
+      ...allMemberships.map((m) => m.societyId),
+      ...groupSocietyIds,
+    ]),
+  ];
+  if (allSocietyIds.length === 0) return { covered: false, overLimit: false };
 
   // 3. Chercher le meilleur abonnement ACTIVE parmi toutes ces sociétés
-  const activeSubscriptions = await prisma.subscription.findMany({
+  const activeSubscriptions = (await prisma.subscription.findMany({
     where: {
       societyId: { in: allSocietyIds },
       status: "ACTIVE",
     },
     select: { societyId: true, planId: true },
-  });
+  })) ?? [];
   if (activeSubscriptions.length === 0) return { covered: false, overLimit: false };
 
   // Prendre le plan le plus généreux (ENTERPRISE > PRO > STARTER)

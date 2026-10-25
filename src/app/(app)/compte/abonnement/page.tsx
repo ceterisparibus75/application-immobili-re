@@ -86,6 +86,7 @@ interface SubscriptionData {
   limits: { maxLots: number; maxSocieties: number; maxUsers: number };
   hasStripeCustomer: boolean;
   usage: { users: number; lots: number };
+  isExempt: boolean;
 }
 
 export default function AbonnementPage() {
@@ -210,6 +211,36 @@ export default function AbonnementPage() {
 
 if (loading) {
     return <div className="animate-pulse space-y-4"><div className="h-32 bg-muted rounded-lg" /><div className="h-48 bg-muted rounded-lg" /></div>;
+  }
+
+  // Société exemptée de la facturation du site (groupe mandataire — MTG Holding).
+  // Pas de plan, pas de facturation Stripe, pas de limites applicables.
+  if (subscription?.isExempt) {
+    return (
+      <div className="space-y-6">
+        <Card className="border-primary/30">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              Société exemptée de facturation
+            </CardTitle>
+            <CardDescription>Société : {activeSociety?.name}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm text-muted-foreground">
+            <p>
+              Cette société appartient au groupe mandataire du service et n&apos;est
+              pas soumise à la facturation du site. Toutes les fonctionnalités
+              sont accessibles sans limite de lots, d&apos;utilisateurs ou de
+              sociétés, et aucun paiement n&apos;est requis.
+            </p>
+            <p>
+              Si cette information vous semble erronée, contactez l&apos;administrateur
+              du compte mandataire.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const currentPlanId = subscription?.planId ?? "STARTER";
