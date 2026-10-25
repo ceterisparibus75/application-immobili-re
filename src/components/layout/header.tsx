@@ -3,7 +3,7 @@
 import { signOut, useSession } from "next-auth/react";
 import { ThemeToggle } from "./theme-toggle";
 import { Button } from "@/components/ui/button";
-import { LogOut, Menu, Search, User, Users, CreditCard, ChevronDown, HelpCircle, Settings, ScrollText, Merge, Shield, Upload } from "lucide-react";
+import { LogOut, Menu, Search, User, Users, CreditCard, ChevronDown, HelpCircle, Settings, ScrollText, Merge, Shield, Upload, Wrench } from "lucide-react";
 import { useState, useRef, useEffect } from "react";
 import { MobileSidebar } from "./mobile-sidebar";
 import { useSociety } from "@/providers/society-provider";
@@ -143,6 +143,14 @@ export function Header({
                     <p className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
                       Administration
                     </p>
+                    <Link
+                      href="/administration"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent transition-colors"
+                    >
+                      <Wrench className="h-4 w-4 text-muted-foreground" />
+                      Vue d&apos;ensemble
+                    </Link>
                     <Link
                       href="/administration/audit"
                       onClick={() => setProfileOpen(false)}
