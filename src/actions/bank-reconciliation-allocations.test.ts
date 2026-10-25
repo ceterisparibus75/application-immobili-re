@@ -161,7 +161,7 @@ describe("reconcileTransactionWithAllocations", () => {
     });
   });
 
-  it("trop-perçu (virement 3000 pour 2x1200) → avoir locataire créé", async () => {
+  it("trop-perçu (virement 3000 pour 2x1200) → aucune TenantBalanceAdjustment, virement bouclé", async () => {
     mockAuthSession(UserRole.COMPTABLE);
     mockTransaction(3000);
     mockInvoices([
@@ -176,16 +176,10 @@ describe("reconcileTransactionWithAllocations", () => {
     ]);
 
     expect(r.success).toBe(true);
-    expect(txMock.tenantBalanceAdjustment.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          tenantId: TENANT_ID,
-          amount: -600,
-          source: "BANK_RECONCILIATION",
-          reconciledBankTransactionId: TX_ID,
-        }),
-      }),
-    );
+    // Le virement affiche déjà son montant intégral (3000) en crédit sur la
+    // fiche locataire : créer en plus une TenantBalanceAdjustment de -600
+    // doublerait le crédit (balance −1200 au lieu de −600).
+    expect(txMock.tenantBalanceAdjustment.create).not.toHaveBeenCalled();
     expect(txMock.bankTransaction.update).toHaveBeenCalledWith({
       where: { id: TX_ID },
       data: { isReconciled: true },

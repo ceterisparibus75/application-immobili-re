@@ -1361,25 +1361,13 @@ export async function reconcileTransactionWithAllocations(
         }
       }
 
-      let balanceAdjustmentId: string | null = null;
-      if (willCreditExcess) {
-        const adj = await tx.tenantBalanceAdjustment.create({
-          data: {
-            societyId,
-            tenantId,
-            leaseId,
-            label: "Avoir — trop-perçu sur virement",
-            amount: -excess,
-            dueDate: transaction.transactionDate,
-            notes: `Virement de ${transaction.amount.toFixed(2)} € ventilé sur ${allocations.length} facture(s). Excédent crédité.`,
-            reference: transaction.reference ?? null,
-            source: "BANK_RECONCILIATION",
-            reconciledBankTransactionId: transactionId,
-          },
-        });
-        balanceAdjustmentId = adj.id;
-      }
-
+      // Pas d'écriture « Avoir — trop-perçu » créée en base : la ligne du
+      // virement affiche déjà son montant intégral (874,97 €) en crédit sur le
+      // compte locataire et seules les factures effectivement ventilées
+      // apparaissent en débit. Créer en plus une TenantBalanceAdjustment
+      // de -excess doublerait le crédit (balance −2 × excess au lieu de −excess).
+      // Le flag `isReconciled = true` reste posé quand la ventilation couvre
+      // bien l'intégralité du virement (surplus compris).
       if (willFullyReconcile) {
         await tx.bankTransaction.update({
           where: { id: transactionId },
@@ -1387,7 +1375,7 @@ export async function reconcileTransactionWithAllocations(
         });
       }
 
-      return { paymentIds, balanceAdjustmentId };
+      return { paymentIds, balanceAdjustmentId: null as string | null };
     });
 
     await createAuditLog({
@@ -1520,35 +1508,22 @@ export async function closeTransactionWithSurplusCredit(
     });
     if (!tenant) return { success: false, error: "Locataire introuvable" };
 
-    await prisma.$transaction(async (tx) => {
-      await tx.tenantBalanceAdjustment.create({
-        data: {
-          societyId,
-          tenantId: tenantId!,
-          leaseId,
-          label: "Avoir — trop-perçu sur virement",
-          amount: -remaining,
-          dueDate: transaction.transactionDate,
-          notes: `Virement de ${transaction.amount.toFixed(2)} €. Reste de ${remaining.toFixed(2)} € crédité au compte locataire.`,
-          reference: transaction.reference ?? null,
-          source: "BANK_RECONCILIATION",
-          reconciledBankTransactionId: transactionId,
-          isReconciled: true,
-          reconciledAt: new Date(),
-        },
-      });
-
-      await tx.bankTransaction.update({
-        where: { id: transactionId },
-        data: { isReconciled: true },
-      });
+    // Pas de TenantBalanceAdjustment créée pour matérialiser le reste : le
+     // virement complet apparaît déjà en crédit sur la fiche locataire et seule
+     // la facture effectivement rapprochée est en débit, donc la balance
+     // reflète naturellement le trop-perçu. Un adjustment supplémentaire
+     // doublerait ce crédit. On marque simplement la BankTransaction comme
+     // réconciliée pour qu'elle sorte de la file d'attente.
+    await prisma.bankTransaction.update({
+      where: { id: transactionId },
+      data: { isReconciled: true },
     });
 
     await createAuditLog({
       societyId,
       userId: context.userId,
-      action: "CREATE",
-      entity: "TenantBalanceAdjustment",
+      action: "UPDATE",
+      entity: "BankTransaction",
       entityId: transactionId,
       details: {
         action: "close_tx_with_surplus_credit",
