@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, Shield, ScrollText, Merge, Upload, Stethoscope, Wrench, HeartPulse } from "lucide-react";
+import { Activity, Shield, ScrollText, Merge, Upload, Stethoscope, Wrench, HeartPulse, Eraser } from "lucide-react";
 import Link from "next/link";
 
 export const metadata = { title: "Administration" };
@@ -34,6 +34,12 @@ const modules = [
     description: "Corriger les virements dont la somme des allocations dépasse le montant reçu",
     href: "/administration/reparation-paiements",
     icon: Wrench,
+  },
+  {
+    title: "Nettoyage trop-perçu",
+    description: "Supprimer les reprises « Avoir — trop-perçu sur virement » créées à tort (double crédit sur les fiches locataires)",
+    href: "/administration/trop-percu",
+    icon: Eraser,
   },
   {
     title: "Audit",
