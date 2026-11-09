@@ -40,6 +40,8 @@ import {
   markAsLitigious,
   markAsIrrecoverable,
   generateAndSendQuittance,
+  generateQuittanceForPaidInvoice,
+  generateMissingQuittances,
 } from "./invoice-lifecycle";
 
 const SOCIETY_ID = "clh3x2z4k0000qh8g7z1y2v3t";
@@ -1341,5 +1343,80 @@ describe("generateAndSendQuittance", () => {
       delete process.env.NEXT_PUBLIC_SUPABASE_URL;
       delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     }
+  });
+});
+
+// ── Rattrapage des quittances manquantes ───────────────────────
+
+describe("generateQuittanceForPaidInvoice", () => {
+  it("refuse un utilisateur non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await generateQuittanceForPaidInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+  });
+
+  it("refuse un appel de loyer non soldé", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValueOnce({
+      id: INVOICE_ID, invoiceType: "APPEL_LOYER", status: "PARTIELLEMENT_PAYE", payments: [],
+    } as never);
+    const result = await generateQuittanceForPaidInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/entièrement payé/);
+  });
+
+  it("refuse une facture qui n'est pas un appel de loyer", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst.mockResolvedValueOnce({
+      id: INVOICE_ID, invoiceType: "REFACTURATION", status: "PAYE", payments: [],
+    } as never);
+    const result = await generateQuittanceForPaidInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/appels de loyer/);
+  });
+
+  it("génère la quittance d'un appel de loyer payé (idempotent si elle existe)", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce({
+        id: INVOICE_ID, invoiceType: "APPEL_LOYER", status: "PAYE",
+        payments: [{ paidAt: new Date("2026-08-05") }, { paidAt: new Date("2026-08-20") }],
+      } as never)
+      .mockResolvedValueOnce(makeInvoice() as never)
+      .mockResolvedValueOnce({ id: "quittance-existante" } as never);
+    const result = await generateQuittanceForPaidInvoice(SOCIETY_ID, INVOICE_ID);
+    expect(result.success).toBe(true);
+    expect(result.data?.quittanceId).toBe("quittance-existante");
+  });
+});
+
+describe("generateMissingQuittances", () => {
+  it("ne traite que les appels de loyer payés sans quittance pour la période", async () => {
+    mockAuthSession("COMPTABLE", SOCIETY_ID);
+    const aug = { start: new Date("2026-08-01"), end: new Date("2026-08-31") };
+    const sep = { start: new Date("2026-09-01"), end: new Date("2026-09-30") };
+    prismaMock.invoice.findMany
+      .mockResolvedValueOnce([
+        { id: "inv-aug", tenantId: "tenant-1", periodStart: aug.start, periodEnd: aug.end, payments: [{ paidAt: new Date("2026-08-20") }] },
+        { id: "inv-sep", tenantId: "tenant-1", periodStart: sep.start, periodEnd: sep.end, payments: [{ paidAt: new Date("2026-09-10") }] },
+      ] as never)
+      .mockResolvedValueOnce([
+        { tenantId: "tenant-1", periodStart: sep.start, periodEnd: sep.end },
+      ] as never);
+    // generateAndSendQuittance(inv-aug) : facture source puis quittance déjà créée entre-temps
+    prismaMock.invoice.findFirst
+      .mockResolvedValueOnce(makeInvoice({ id: "inv-aug" }) as never)
+      .mockResolvedValueOnce({ id: "q-aug" } as never);
+
+    const result = await generateMissingQuittances(SOCIETY_ID);
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual({ generated: 1, failed: 0, remaining: 0 });
+    expect(prismaMock.invoice.findFirst).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuse un utilisateur non authentifié", async () => {
+    mockUnauthenticated();
+    const result = await generateMissingQuittances(SOCIETY_ID);
+    expect(result.success).toBe(false);
   });
 });

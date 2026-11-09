@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertOctagon, AlertTriangle, ArrowRight, FileClock, Mail, Plus, Receipt, Zap } from "lucide-react";
 import { InvoicesList } from "./invoices-list";
 import { DraftsBanner } from "./drafts-banner";
+import { MissingQuittancesButton } from "./missing-quittances-button";
 import { FailedDeliverySection, type FailedInvoiceDeliveryItem } from "./failed-delivery-section";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -420,6 +421,9 @@ export function FacturationTabs({
       {/* Onglet Quittances */}
       {initialTab === "quittances" && (
         <div className="space-y-6 mt-6">
+          <div className="flex justify-end">
+            <MissingQuittancesButton societyId={societyId} />
+          </div>
           {quittances.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center px-6 py-16 text-center">

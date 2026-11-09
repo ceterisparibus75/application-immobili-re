@@ -12,6 +12,7 @@ import {
 import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/actions/society";
 import { generateAndSendQuittance } from "@/actions/invoice";
+import { runAfterResponse } from "@/lib/after-response";
 import {
   buildBankAccountFallback,
   buildSupplierAccountFallback,
@@ -1004,9 +1005,9 @@ export async function reconcileWithInvoice(
     }
 
     if (newStatus === "PAYE" && invoice.invoiceType === "APPEL_LOYER") {
-      generateAndSendQuittance(societyId, invoiceId, transaction.transactionDate).catch((err) => {
-        console.error("[reconcileWithInvoice] Quittance auto échouée:", err);
-      });
+      runAfterResponse("reconcileWithInvoice.quittance", () =>
+        generateAndSendQuittance(societyId, invoiceId, transaction.transactionDate)
+      );
     }
 
     return { success: true };
@@ -1400,9 +1401,9 @@ export async function reconcileTransactionWithAllocations(
     // Même protection que reconcileWithInvoice : la fonction interne vérifie
     // l'existence d'une quittance pour la période avant d'en créer une.
     for (const invoiceId of invoicesNewlyPaid) {
-      generateAndSendQuittance(societyId, invoiceId, transaction.transactionDate).catch((err) => {
-        console.error("[reconcileTransactionWithAllocations] Quittance auto échouée:", err);
-      });
+      runAfterResponse("reconcileTransactionWithAllocations.quittance", () =>
+        generateAndSendQuittance(societyId, invoiceId, transaction.transactionDate)
+      );
     }
 
     revalidatePath("/banque");

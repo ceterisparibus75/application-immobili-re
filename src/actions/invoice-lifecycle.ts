@@ -30,6 +30,7 @@ import {
   NoOpenFiscalYearError,
 } from "@/lib/accounting-period";
 import { env } from "@/lib/env";
+import { runAfterResponse } from "@/lib/after-response";
 import { getNextInvoiceNumber, getNextCreditNoteNumber, getNextReceiptNumber } from "./invoice-shared";
 
 // Numéro alloué à la validation, pas à la création du brouillon.
@@ -108,9 +109,10 @@ export async function recordPayment(
     }
 
     if (newStatus === "PAYE" && invoice.invoiceType === "APPEL_LOYER") {
-      generateAndSendQuittance(societyId, parsed.data.invoiceId, new Date(parsed.data.paidAt)).catch((err) => {
-        console.error("[recordPayment] Quittance auto échouée:", err);
-      });
+      const paidAt = new Date(parsed.data.paidAt);
+      runAfterResponse("recordPayment.quittance", () =>
+        generateAndSendQuittance(societyId, parsed.data.invoiceId, paidAt)
+      );
     }
 
     return { success: true, data: { id: payment.id } };
@@ -218,7 +220,10 @@ export async function generateAndSendQuittance(
       }
     );
 
-    generateQuittancePdfAndSend(societyId, quittance.id).catch((err) => {
+    // Attendu (et non plus lancé sans await) : sur Vercel, une promesse
+    // orpheline est gelée dès la fin de la requête et l'email ne part jamais.
+    // Les appelants planifient cette fonction via runAfterResponse().
+    await generateQuittancePdfAndSend(societyId, quittance.id).catch((err) => {
       console.error("[generateAndSendQuittance] Envoi email/PDF échoué:", err);
     });
 
@@ -232,6 +237,140 @@ export async function generateAndSendQuittance(
   } catch (error) {
     console.error("[generateAndSendQuittance]", error);
     return { success: false, error: "Erreur lors de la génération de la quittance" };
+  }
+}
+
+/** Date du règlement qui a soldé l'appel de loyer (dernier paiement). */
+function settlementDate(payments: { paidAt: Date }[]): Date {
+  return payments.reduce<Date>(
+    (latest, p) => (p.paidAt > latest ? p.paidAt : latest),
+    payments[0]?.paidAt ?? new Date()
+  );
+}
+
+/**
+ * Rattrapage manuel : génère et envoie la quittance d'un appel de loyer payé
+ * qui n'en a pas (création auto interrompue, ancien flux de rapprochement…).
+ * Idempotent : si une quittance existe déjà pour la période, elle est renvoyée.
+ */
+export async function generateQuittanceForPaidInvoice(
+  societyId: string,
+  invoiceId: string
+): Promise<ActionResult<{ quittanceId: string }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const invoice = await prisma.invoice.findFirst({
+      where: { id: invoiceId, societyId },
+      select: {
+        id: true,
+        invoiceType: true,
+        status: true,
+        payments: { select: { paidAt: true } },
+      },
+    });
+    if (!invoice) return { success: false, error: "Facture introuvable" };
+    if (invoice.invoiceType !== "APPEL_LOYER") {
+      return { success: false, error: "Seuls les appels de loyer génèrent des quittances" };
+    }
+    if (invoice.status !== "PAYE") {
+      return { success: false, error: "La quittance ne peut être émise que pour un loyer entièrement payé" };
+    }
+
+    const result = await generateAndSendQuittance(societyId, invoice.id, settlementDate(invoice.payments));
+    if (!result.success || !result.data) return result;
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "Invoice",
+      entityId: result.data.quittanceId,
+      details: { event: "MANUAL_QUITTANCE_GENERATION", sourceInvoiceId: invoice.id },
+    });
+
+    revalidatePath(`/facturation/${invoice.id}`);
+    return result;
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[generateQuittanceForPaidInvoice]", error);
+    return { success: false, error: "Erreur lors de la génération de la quittance" };
+  }
+}
+
+/** Nombre max de quittances rattrapées par appel (PDF + email ≈ 2-4 s chacune). */
+const MISSING_QUITTANCES_BATCH = 15;
+
+/**
+ * Rattrapage en masse : génère et envoie les quittances manquantes de tous les
+ * appels de loyer payés de la société, par lots de MISSING_QUITTANCES_BATCH.
+ */
+export async function generateMissingQuittances(
+  societyId: string
+): Promise<ActionResult<{ generated: number; failed: number; remaining: number }>> {
+  try {
+    const context = await requireSocietyActionContext(societyId, "COMPTABLE");
+
+    const [paidRentCalls, quittances] = await Promise.all([
+      prisma.invoice.findMany({
+        where: { societyId, invoiceType: "APPEL_LOYER", status: "PAYE" },
+        select: {
+          id: true,
+          tenantId: true,
+          periodStart: true,
+          periodEnd: true,
+          payments: { select: { paidAt: true } },
+        },
+        orderBy: [{ periodStart: "asc" }, { createdAt: "asc" }],
+      }),
+      prisma.invoice.findMany({
+        where: { societyId, invoiceType: "QUITTANCE" },
+        select: { tenantId: true, periodStart: true, periodEnd: true },
+      }),
+    ]);
+
+    const periodKey = (tenantId: string, start: Date | null, end: Date | null): string =>
+      `${tenantId}|${start?.toISOString() ?? ""}|${end?.toISOString() ?? ""}`;
+    const covered = new Set(quittances.map((q) => periodKey(q.tenantId, q.periodStart, q.periodEnd)));
+    const missing = paidRentCalls.filter(
+      (inv) => !covered.has(periodKey(inv.tenantId, inv.periodStart, inv.periodEnd))
+    );
+
+    const batch = missing.slice(0, MISSING_QUITTANCES_BATCH);
+    let generated = 0;
+    let failed = 0;
+    // Séquentiel : getNextReceiptNumber() alloue les numéros dans l'ordre.
+    for (const inv of batch) {
+      const result = await generateAndSendQuittance(societyId, inv.id, settlementDate(inv.payments));
+      if (result.success) generated += 1;
+      else failed += 1;
+    }
+
+    await createAuditLog({
+      societyId,
+      userId: context.userId,
+      action: "CREATE",
+      entity: "Invoice",
+      entityId: societyId,
+      details: {
+        event: "BULK_MISSING_QUITTANCE_GENERATION",
+        generated,
+        failed,
+        invoiceIds: batch.map((inv) => inv.id),
+      },
+    });
+
+    revalidatePath("/facturation");
+    return {
+      success: true,
+      data: { generated, failed, remaining: missing.length - batch.length },
+    };
+  } catch (error) {
+    if (error instanceof UnauthenticatedActionError) return { success: false, error: error.message };
+    if (error instanceof ForbiddenError) return { success: false, error: error.message };
+    console.error("[generateMissingQuittances]", error);
+    return { success: false, error: "Erreur lors du rattrapage des quittances" };
   }
 }
 

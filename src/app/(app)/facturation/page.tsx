@@ -1,3 +1,6 @@
+// Rattrapage des quittances manquantes (PDF + email par lot de 15).
+export const maxDuration = 120;
+
 import { Suspense } from "react";
 import { getInvoices } from "@/actions/invoice";
 import { Button } from "@/components/ui/button";

@@ -28,6 +28,7 @@ import { SubmitEInvoiceButton } from "./_components/submit-einvoice-button";
 import { PaStatusCard } from "./_components/pa-status-card";
 import { LinkBuildingButton } from "./_components/link-building-button";
 import { SettleAvoirButton } from "./_components/settle-avoir-button";
+import { GenerateQuittanceButton } from "./_components/generate-quittance-button";
 import { RenumberInvoiceButton } from "./_components/renumber-invoice-button";
 import { NoteEditor } from "./_components/note-editor";
 import { ValidateInvoiceButton } from "./_components/validate-invoice-button";
@@ -154,6 +155,21 @@ export default async function FactureDetailPage({
       return sum + (inv.totalTTC - paid);
     }, adjustments.reduce((sum, adjustment) => sum + adjustment.amount, 0));
   }
+
+  // Appel de loyer payé sans quittance pour la période → bouton de rattrapage.
+  const isMissingQuittance =
+    invoice.invoiceType === "APPEL_LOYER" &&
+    isPaid &&
+    !(await prisma.invoice.findFirst({
+      where: {
+        societyId,
+        tenantId: invoice.tenantId,
+        invoiceType: "QUITTANCE",
+        periodStart: invoice.periodStart,
+        periodEnd: invoice.periodEnd,
+      },
+      select: { id: true },
+    }));
 
   return (
     <div className="space-y-6">
@@ -284,6 +300,9 @@ export default async function FactureDetailPage({
           )}
           {invoice.invoiceType === "AVOIR" && ["VALIDEE", "EN_ATTENTE", "ENVOYEE"].includes(invoice.status) && (
             <SettleAvoirButton invoiceId={invoice.id} societyId={societyId} />
+          )}
+          {isMissingQuittance && (
+            <GenerateQuittanceButton invoiceId={invoice.id} societyId={societyId} />
           )}
         </div>
       </div>
