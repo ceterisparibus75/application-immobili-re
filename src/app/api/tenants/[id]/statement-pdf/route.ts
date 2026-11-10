@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireActiveSocietyRouteContext } from "@/lib/api-society";
 import { prisma } from "@/lib/prisma";
-import { renderToBuffer } from "@react-pdf/renderer";
+import { renderToBuffer, type DocumentProps } from "@react-pdf/renderer";
 import { createClient } from "@supabase/supabase-js";
 import { createAuditLog } from "@/lib/audit";
 import { env } from "@/lib/env";
@@ -127,7 +127,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     const issuedAt = new Date().toISOString();
 
     const pdfBuffer = await renderToBuffer(
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       React.createElement(TenantStatementPdf, {
         data: {
           tenant: { name: tenantName, address: tenantAddress || null, email: tenant.email },
@@ -151,7 +150,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
           issuedAt,
           periodLabel: null,
         },
-      }) as any,
+      // renderToBuffer attend un <Document> : TenantStatementPdf rend bien un <Document> racine.
+      }) as React.ReactElement<DocumentProps>,
     );
 
     await createAuditLog({

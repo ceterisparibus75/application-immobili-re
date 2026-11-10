@@ -35,6 +35,15 @@ import { RenewConsentButton } from "../_components/renew-consent-button";
 import { PowensDiagnosticButton } from "../_components/powens-diagnostic-button";
 import { BankAccountActionsMenu } from "../_components/bank-account-actions-menu";
 
+const CONSENT_WARNING_MS = 15 * 24 * 60 * 60 * 1000;
+
+function consentExpiryClass(expiresAt: Date): string {
+  const now = Date.now();
+  if (expiresAt.getTime() <= now) return "text-destructive";
+  if (expiresAt.getTime() <= now + CONSENT_WARNING_MS) return "text-[var(--color-status-caution)]";
+  return "text-muted-foreground";
+}
+
 export default async function BankAccountDetailPage({
   params,
   searchParams,
@@ -105,14 +114,7 @@ export default async function BankAccountDetailPage({
               )}
               {account.connection?.expiresAt && (
                 <p
-                  className={
-                    account.connection.expiresAt.getTime() <= Date.now()
-                      ? "text-destructive"
-                      : account.connection.expiresAt.getTime() <=
-                          Date.now() + 15 * 24 * 60 * 60 * 1000
-                        ? "text-[var(--color-status-caution)]"
-                        : "text-muted-foreground"
-                  }
+                  className={consentExpiryClass(account.connection.expiresAt)}
                 >
                   Consentement PSD2 valide jusqu&apos;au{" "}
                   {formatDate(account.connection.expiresAt)}

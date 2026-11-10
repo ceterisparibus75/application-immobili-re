@@ -30,7 +30,6 @@ export function SendMagicLinkButton({ tenantId, tenantEmail, tenantName }: Props
 
   useEffect(() => {
     if (!isOpen || !activeSociety) return;
-    setIsLoading(true);
     void (async () => {
       const base: Option[] = [
         { value: "primary", label: `Locataire : ${tenantName} (${tenantEmail})` },
@@ -69,7 +68,10 @@ export function SendMagicLinkButton({ tenantId, tenantEmail, tenantName }: Props
 
   if (!isOpen) {
     return (
-      <Button variant="outline" onClick={() => setIsOpen(true)}>
+      <Button variant="outline" onClick={() => {
+          setIsLoading(true);
+          setIsOpen(true);
+        }}>
         <LinkIcon className="h-4 w-4" />
         Envoyer un lien de connexion
       </Button>

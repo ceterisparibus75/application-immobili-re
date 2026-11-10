@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,28 +27,41 @@ function dismissKey(societyId: string, doneCount: number): string {
   return `${DISMISS_KEY}:${societyId}:${doneCount}`;
 }
 
-export function OnboardingChecklist({ progress, societyId }: Props) {
-  const [dismissed, setDismissed] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
+function subscribeStorage(onChange: () => void): () => void {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+}
 
-  useEffect(() => {
-    try {
-      const key = dismissKey(societyId, progress.completed);
-      setDismissed(window.localStorage.getItem(key) === "1");
-    } catch {
-      /* ignore — quotas / private mode */
-    }
-    setHydrated(true);
-  }, [societyId, progress.completed]);
+function readDismissed(key: string): boolean {
+  try {
+    return window.localStorage.getItem(key) === "1";
+  } catch {
+    return false; // quotas / private mode
+  }
+}
+
+export function OnboardingChecklist({ progress, societyId }: Props) {
+  const key = dismissKey(societyId, progress.completed);
+  // "ssr" côté serveur et pendant l'hydratation : on n'affiche rien tant que
+  // localStorage n'a pas été lu (évite un flash de la carte déjà masquée).
+  const stored = useSyncExternalStore(
+    subscribeStorage,
+    () => (readDismissed(key) ? "dismissed" : "visible"),
+    () => "ssr"
+  );
+  const [dismissedKey, setDismissedKey] = useState<string | null>(null);
 
   function handleDismiss() {
     try {
-      window.localStorage.setItem(dismissKey(societyId, progress.completed), "1");
+      window.localStorage.setItem(key, "1");
     } catch {
       /* ignore */
     }
-    setDismissed(true);
+    setDismissedKey(key);
   }
+
+  const hydrated = stored !== "ssr";
+  const dismissed = stored === "dismissed" || dismissedKey === key;
 
   // Ne pas afficher si tout est fait, ou si dismiss local, ou avant hydratation.
   if (!hydrated) return null;
