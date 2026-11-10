@@ -64,6 +64,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
         env:
+          SKIP_PRISMA_MIGRATE: "1"
           DATABASE_URL: postgresql://fake:5432/fake
           DIRECT_URL: postgresql://fake:5432/fake
           AUTH_SECRET: ci-test-secret
@@ -94,6 +95,7 @@ jobs:
       - run: npx prisma generate
       - run: npm run build
         env:
+          SKIP_PRISMA_MIGRATE: "1"
           DATABASE_URL: postgresql://fake:5432/fake
           DIRECT_URL: postgresql://fake:5432/fake
           AUTH_SECRET: ci-test-secret

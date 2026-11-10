@@ -8,6 +8,12 @@
 # sans erreur. Ce script débloque juste les états inconsistants.
 set -e
 
+# CI (E2E / Build) : base factice, pas de migration à appliquer.
+if [ "${SKIP_PRISMA_MIGRATE:-}" = "1" ]; then
+  echo "[prisma-migrate-safe] SKIP_PRISMA_MIGRATE=1 — migrations ignorées."
+  exit 0
+fi
+
 # Liste des migrations connues comme potentiellement en failed state
 # (héritage db push antérieur ou builds précédents ayant échoué).
 # Ajouter ici toute nouvelle migration qui pourrait tomber dans ce cas.
